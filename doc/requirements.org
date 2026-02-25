@@ -1,0 +1,568 @@
+* AgeSharp Requirements Document
+
+#+STARTUP: toc
+#+OPTIONS: toc:2
+
+** Table of Contents                                          :noexport:
+:PROPERTIES:
+:UNNUMBERED: toc
+:END:
+- [[#project-overview][1. Project Overview]]
+- [[#goals][2. Goals]]
+- [[#technical-specification-reference][3. Technical Specification Reference]]
+- [[#architecture][4. Architecture]]
+  - [[#project-structure][4.1 Project Structure]]
+  - [[#core-library-agesharpcore][4.2 Core Library (AgeSharp.Core)]]
+  - [[#cli-application-agesharpcli][4.3 CLI Application (AgeSharp.CLI)]]
+  - [[#test-project-agesharptests][4.4 Test Project (AgeSharp.Tests)]]
+- [[#dependencies][5. Dependencies]]
+- [[#build-release][6. Build & Release]]
+- [[#non-functional-requirements][7. Non-Functional Requirements]]
+- [[#implementation-phases][8. Implementation Phases]]
+  - [[#phase-1-core-library-basics][Phase 1: Core Library Basics]]
+  - [[#phase-2-scrypt-passphrase-support][Phase 2: Scrypt Passphrase Support]]
+  - [[#phase-3-ssh-key-support][Phase 3: SSH Key Support]]
+  - [[#phase-4-ascii-armor][Phase 4: ASCII Armor]]
+  - [[#phase-5-cli-application][Phase 5: CLI Application]]
+  - [[#phase-6-post-quantum-support-future][Phase 6: Post-Quantum Support (Future)]]
+- [[#success-criteria][9. Success Criteria]]
+
+** 1. Project Overview
+:PROPERTIES:
+:CUSTOM_ID: project-overview
+:END:
+
+- Project Name: AgeSharp
+- Type: C# .NET 10 Library + CLI Application
+- Core Functionality: Implementation of the Age file encryption format (age-encryption.org/v1) in C#, with a NuGet-compatible library and CLI tool interoperable with the reference implementation.
+
+** 2. Goals
+:PROPERTIES:
+:CUSTOM_ID: goals
+:END:
+
+1. Create a C# .NET 10 library that implements the Age encryption specification (v1)
+2. Publish the library as a NuGet package for consumption by other projects
+3. Build a CLI application that provides feature parity with the reference implementation (filippo.io/age)
+4. Ensure unit tests using xUnit
+
+** 3. Technical Specification Reference
+:PROPERTIES:
+:CUSTOM_ID: technical-specification-reference
+:END:
+
+- Full specification: [[file:doc/age-specs-v1.md]]
+- Reference implementation: https://github.com/FiloSottile/age
+
+** 4. Architecture
+:PROPERTIES:
+:CUSTOM_ID: architecture
+:END:
+
+*** 4.1 Project Structure
+:PROPERTIES:
+:CUSTOM_ID: project-structure
+:END:
+
+#+BEGIN_EXAMPLE
+AgeSharp/
+├── src/
+│   ├── AgeSharp.Core/          # Core library (NuGet package)
+│   └── AgeSharp.CLI/           # Command-line tool
+├── tests/
+│   └── AgeSharp.Tests/         # xUnit tests
+├── doc/
+│   ├── requirements.org        # This document
+│   └── age-specs-v1.md         # Specification (provided)
+└── README.md
+#+END_EXAMPLE
+
+*** 4.2 Core Library (AgeSharp.Core)
+:PROPERTIES:
+:CUSTOM_ID: core-library-agesharpcore
+:END:
+
+- Target Framework: .NET 10
+- NuGet Package: AgeSharp.Core
+
+**** 4.2.1 Core Cryptographic Parameters
+
+| Parameter              | Value                              |
+|-----------------------|------------------------------------|
+| File key size         | 16 bytes (128-bit)                |
+| Chunk size            | 64 KiB (65536 bytes)              |
+| Chunk counter         | 11 bytes (big-endian)             |
+| Final chunk marker    | 0x01 (last), 0x00 (intermediate) |
+| Header MAC            | HMAC-SHA-256                      |
+| MAC key salt          | empty                              |
+| MAC key info          | "header"                           |
+| Payload nonce         | 16 bytes (CSPRNG, unique per file)|
+| Payload key salt      | nonce                              |
+| Payload key info      | "payload"                          |
+
+***** Base64 Encoding Requirements
+
+- Must use standard Base64 (RFC 4648, Section 4)
+- No padding characters (=) allowed
+- Must generate canonical Base64 (RFC 4648, Section 3.5)
+- Must reject non-canonical encodings
+- Must reject encodings with padding characters
+
+**** 4.2.2 Key Components
+
+| Component    | Description                                           | Public API |
+|--------------+-------------------------------------------------------+------------|
+| Age          | Main entry point for encryption/decryption            | Yes        |
+| AgeInspector | File inspection for age-inspect command               | Yes        |
+| AgeHeader    | Parses and generates the textual header               | Internal   |
+| AgePayload   | Handles binary payload encryption/decryption          | Internal   |
+| Recipients   | Interface and implementations for all recipient types | Internal   |
+| Identities   | Interface and implementations for all identity types  | Internal   |
+| Keys         | Key generation, derivation, and encoding utilities    | Internal   |
+
+**** 4.2.2 Supported Recipient Types
+
+| Type               | Identity Format         | Recipient Format | Description                  | Status |
+|--------------------+-------------------------+------------------+------------------------------+--------|
+| X25519             | AGE-SECRET-KEY-1...     | age1...          | Standard X25519 key exchange | Done   |
+| Scrypt             | (passphrase string)     | (passphrase)     | Password-based encryption    | Done   |
+| ML-KEM768-X25519   | AGE-SECRET-KEY-PQ-1...  | age1pq1...       | Hybrid post-quantum (X-Wing) | Future |
+| P256-Tag           | (plugin-based)          | age1tag1...      | P-256 ECDH with tag          | Future |
+| ML-KEM768-P256-Tag | (plugin-based)          | age1tagpq1...    | Hybrid post-quantum tagged   | Future |
+
+**** 4.2.2.1 Key File Formats
+
+***** X25519 Keys
+
+- *Identity (private key)*: Bech32 encoding with HRP =AGE-SECRET-KEY-=
+  #+BEGIN_EXAMPLE
+  AGE-SECRET-KEY-1GFPYYSJZGFPYYSJZGFPYYSJZGFPYYSJZGFPYYSJZGFPYYSJZGFPQ4EGAEX
+  #+END_EXAMPLE
+- *Recipient (public key)*: Bech32 encoding with HRP =age=
+  #+BEGIN_EXAMPLE
+  age1zvkyg2lqzraa2lnjvqej32nkuu0ues2s82hzrye869xeexvn73equnujwj
+  #+END_EXAMPLE
+- Identity is 32 bytes, encoded with Bech32
+- Recipient is derived via X25519 scalar multiplication
+
+***** Scrypt (Passphrase)
+
+- Identity: Passphrase string (any Unicode text)
+- Recipient: Passphrase string (same as identity for encryption)
+- No encoding needed - passphrase is used directly as input to scrypt
+
+***** Identity File Format
+
+The identity file (used by CLI) contains one or more identities:
+
+#+BEGIN_EXAMPLE
+# age identity file
+AGE-SECRET-KEY-1GFPYYSJZGFPYYSJZGFPYYSJZGFPYYSJZGFPYYSJZGFPYYSJZGFPQ4EGAEX
+#+END_EXAMPLE
+
+- Lines starting with =#= are comments
+- Each non-comment line contains one identity (private key or passphrase)
+- Multiple identities can be listed for decryption with multiple keys
+
+**** 4.2.3 Cryptographic Primitives
+
+| Primitive         | Implementation                           |
+|-------------------+------------------------------------------|
+| ChaCha20-Poly1305 | System.Security.Cryptography             |
+| X25519            | System.Security.Cryptography             |
+| HKDF-SHA-256      | System.Security.Cryptography             |
+| HMAC-SHA-256      | System.Security.Cryptography             |
+| Scrypt            | Norgerman.Cryptography.Scrypt (NuGet)    |
+| Bech32            | Nano.Bech32 (NuGet)                      |
+| Base64            | System.Convert with canonical validation |
+
+*Note:* ML-KEM-768 will be needed for future post-quantum support.
+
+**** 4.2.3.1 Scrypt Parameters
+
+The scrypt key derivation follows RFC 7914 with the following parameters:
+
+| Parameter        | Value                                      |
+|------------------|-------------------------------------------|
+| Salt size        | 16 bytes (randomly generated per file)   |
+| Work factor (N)  | 2^logN (logN provided in stanza)         |
+| Block size (r)   | 8                                         |
+| Parallelization  | 1                                         |
+| Output length    | 32 bytes                                  |
+| Salt prefix      | "age-encryption.org/v1/scrypt"           |
+| Nonce            | 12 bytes of 0x00                          |
+
+***** Default Work Factors
+
+| Context        | Default logN | Max logN (configurable) |
+|----------------|--------------|------------------------|
+| Encryption     | 18           | -                      |
+| Decryption     | -            | 22                     |
+
+***** Stanza Format
+
+#+BEGIN_EXAMPLE
+-> scrypt <base64-salt> <logN>
+<body>
+#+END_EXAMPLE
+
+- First argument: "scrypt"
+- Second argument: base64-encoded 16-byte salt
+- Third argument: base-two logarithm of work factor (decimal, no leading zeros)
+- Body: ChaCha20-Poly1305 encrypted file key (32 bytes)
+
+***** Validation Rules
+
+- Salt MUST be exactly 16 bytes when decoded
+- Work factor MUST match regex: ^[1-9][0-9]*$ (no leading zeros)
+- Body MUST be exactly 32 bytes before decryption attempt
+- Scrypt stanza MUST be the only stanza in header (no mixing with other recipient types)
+
+**** 4.2.4 Public API (Core)
+
+#+BEGIN_SRC csharp
+// ============================================================================
+// Exception types
+// ============================================================================
+
+public class AgeException : Exception
+{
+    public AgeException(string message) : base(message) { }
+    public AgeException(string message, Exception inner) : base(message, inner) { }
+}
+
+public class AgeFormatException : AgeException
+{
+    public AgeFormatException(string message) : base(message) { }
+}
+
+public class AgeKeyException : AgeException
+{
+    public AgeKeyException(string message) : base(message) { }
+}
+
+public class AgeEncryptionException : AgeException
+{
+    public AgeEncryptionException(string message) : base(message) { }
+}
+
+public class AgeDecryptionException : AgeException
+{
+    public AgeDecryptionException(string message) : base(message) { }
+}
+
+public class AgeUnsupportedFeatureException : AgeException
+{
+    public AgeUnsupportedFeatureException(string message) : base(message) { }
+}
+
+public class AgeInvalidPassphraseException : AgeDecryptionException
+{
+    public AgeInvalidPassphraseException() : base("Incorrect passphrase") { }
+}
+
+public class AgeIdentityNotFoundException : AgeDecryptionException
+{
+    public AgeIdentityNotFoundException(string message) : base(message) { }
+}
+
+// ============================================================================
+// Core encryption/decryption operations
+// ============================================================================
+
+public static class Age
+{
+    // ----- Throwing methods (recommended for most use cases) -----
+
+    // Stream-based (for large files)
+    public static Task EncryptAsync(Stream input, Stream output, IEnumerable<IRecipient> recipients, EncryptionOptions? options = null, CancellationToken cancellationToken = default);
+    public static Task DecryptAsync(Stream input, Stream output, IEnumerable<IIdentity> identities, DecryptionOptions? options = null, CancellationToken cancellationToken = default);
+
+    // Byte array variants (for small data)
+    public static Task<byte[]> EncryptAsync(byte[] data, IEnumerable<IRecipient> recipients, CancellationToken cancellationToken = default);
+    public static Task<byte[]> DecryptAsync(byte[] data, IEnumerable<IIdentity> identities, CancellationToken cancellationToken = default);
+
+    // ----- Try* methods (for scenarios where caller wants to handle failure gracefully) -----
+
+    // Stream-based
+    public static Task<bool> TryEncryptAsync(Stream input, Stream output, IEnumerable<IRecipient> recipients, EncryptionOptions? options = null, CancellationToken cancellationToken = default);
+    public static Task<bool> TryDecryptAsync(Stream input, Stream output, IEnumerable<IIdentity> identities, DecryptionOptions? options = null, CancellationToken cancellationToken = default);
+
+    // Byte array variants - sync (for small data)
+    public static bool TryEncrypt(byte[] data, IEnumerable<IRecipient> recipients, out byte[]? encryptedData);
+    public static bool TryDecrypt(byte[] data, IEnumerable<IIdentity> identities, out byte[]? decryptedData);
+
+    // Byte array variants - async, returns (success, data) tuple
+    public static Task<(bool Success, byte[]? Data)> TryEncryptAsync(byte[] data, IEnumerable<IRecipient> recipients, CancellationToken cancellationToken = default);
+    public static Task<(bool Success, byte[]? Data)> TryDecryptAsync(byte[] data, IEnumerable<IIdentity> identities, CancellationToken cancellationToken = default);
+}
+
+// File inspection (for age-inspect command)
+public static class AgeInspector
+{
+    public static AgeFileInfo Inspect(Stream input, CancellationToken cancellationToken = default);
+    public static AgeFileInfo Inspect(byte[] data, CancellationToken cancellationToken = default);
+    public static AgeFileInfo Inspect(string filePath, CancellationToken cancellationToken = default);
+}
+
+public record AgeFileInfo(
+    string Version,
+    IReadOnlyList<string> RecipientTypes,
+    bool IsArmor,
+    long HeaderSize,
+    long PayloadSize,
+    long TotalSize);
+
+// Encryption options
+public record EncryptionOptions(
+    bool Armor = false,
+    int ChunkSize = 64 * 1024);
+
+// Decryption options
+public record DecryptionOptions(
+    int ChunkSize = 64 * 1024);
+
+// Recipient interface - public abstraction
+public interface IRecipient
+{
+    string ToRecipientString();  // age1...
+    RecipientType Type { get; }
+}
+
+public enum RecipientType { X25519, Scrypt }
+
+// Identity interface - public abstraction
+public interface IIdentity
+{
+    string ToIdentityString();  // AGE-SECRET-KEY-1...
+    RecipientType Type { get; }
+}
+
+// Key generation - static factory class
+public static class AgeKeyGenerator
+{
+    public static IIdentity GenerateX25519Key();
+    public static string GetRecipientString(IIdentity identity);
+}
+
+// Parsing utilities - factory for creating recipients/identities from strings
+public static class AgeParser
+{
+    public static IRecipient ParseRecipient(string input);
+    public static IIdentity ParseIdentity(string input);
+    public static IEnumerable<IRecipient> ParseRecipientsFile(string path);
+    public static IEnumerable<IIdentity> ParseIdentitiesFile(string path);
+}
+#+END_SRC
+
+**** 4.2.5 Streaming Support
+
+- Chunk-based encryption (64 KiB chunks)
+- Seekable decryption
+- Progress reporting support (added in future phase)
+
+**** 4.2.6 ASCII Armor
+
+- PEM encoding with "AGE ENCRYPTED FILE" label
+- RFC 7468 compliant
+- Base64 with padding
+
+*** 4.3 CLI Application (AgeSharp.CLI)
+:PROPERTIES:
+:CUSTOM_ID: cli-application-agesharpcli
+:END:
+
+- Target Framework: .NET 10
+- Output: Single-file executable
+
+**** 4.3.1 Commands
+
+| Command     | Description                              |
+|-------------+------------------------------------------|
+| age         | Encrypt/decrypt files (default: encrypt) |
+| age-keygen  | Generate identity key pair               |
+| age-inspect | Inspect encrypted file metadata          |
+
+**** 4.3.2 CLI Usage
+
+#+BEGIN_SRC bash
+# Encrypt
+age -o output.age -r RECIPIENT... [-R RECIPIENTS_FILE] [--armor] [--passphrase] [INPUT]
+
+# Decrypt
+age -d [-i IDENTITY_FILE]... [-o OUTPUT] [INPUT]
+
+# Key generation
+age-keygen [-o key.txt]
+
+# Inspection
+age-inspect [--json] FILE
+#+END_SRC
+
+*Note:* =--pq= flag for post-quantum keys is a future feature.
+
+**** 4.3.3 CLI Options
+
+| Flag                  | Description                       |
+|-----------------------+-----------------------------------|
+| -e, --encrypt         | Encrypt (default)                 |
+| -d, --decrypt         | Decrypt                           |
+| -o, --output          | Output file path                  |
+| -a, --armor           | Use ASCII armor (PEM)             |
+| -p, --passphrase      | Encrypt with passphrase           |
+| -r, --recipient       | Encrypt to recipient (can repeat) |
+| -R, --recipients-file | Read recipients from file         |
+| -i, --identity        | Use identity file (can repeat)    |
+
+**** 4.3.4 SSH Key Support
+
+- Encrypt to SSH public keys (ed25519, rsa)
+- Decrypt using SSH private keys
+- Parse GitHub keys via URL
+
+*** 4.4 Test Project (AgeSharp.Tests)
+:PROPERTIES:
+:CUSTOM_ID: test-project-agesharptests
+:END:
+
+- Framework: xUnit
+- Target Framework: .NET 10
+
+**** 4.4.1 Test Categories
+
+| Category               | Description                                        |
+|------------------------+----------------------------------------------------|
+| Unit Tests             | Individual component tests                         |
+| Integration Tests      | Full encryption/decryption flow                    |
+| Interoperability Tests | Verify compatibility with reference implementation |
+| Test Vectors           | Official test vectors from age-encryption.org      |
+
+** 5. Dependencies
+:PROPERTIES:
+:CUSTOM_ID: dependencies
+:END:
+
+*** 5.1 Core Library
+
+- .NET 10 SDK
+- System.Security.Cryptography (built-in .NET 10)
+- NuGet packages:
+  - Norgerman.Cryptography.Scrypt (Scrypt key derivation)
+  - Nano.Bech32 (Bech32 encoding)
+
+*** 5.2 CLI Application
+
+- AgeSharp.Core (reference)
+- System.CommandLine (CLI framework)
+
+** 6. Build & Release
+:PROPERTIES:
+:CUSTOM_ID: build-release
+:END:
+
+*** 6.1 Build Commands
+
+#+BEGIN_SRC bash
+# Build library
+dotnet build src/AgeSharp.Core
+
+# Build CLI
+dotnet build src/AgeSharp.CLI
+
+# Run tests
+dotnet test tests/AgeSharp.Tests
+#+END_SRC
+
+*** 6.2 NuGet Publishing
+
+- Package ID: AgeSharp.Core
+- Source: nuget.org
+
+** 7. Non-Functional Requirements
+:PROPERTIES:
+:CUSTOM_ID: non-functional-requirements
+:END:
+
+- Performance: Streaming encryption should handle large files efficiently
+- Security: No plaintext key material in memory longer than necessary
+- Compatibility: Output must be decryptable by reference implementation
+- Error Handling: Clear error messages for malformed files, wrong keys, etc.
+
+*** 7.1 Passphrase Encoding Requirements
+
+The implementation MUST support Unicode passphrases following modern best practices:
+
+| Requirement        | Specification                                          |
+|--------------------+--------------------------------------------------------|
+| Encoding           | UTF-8 for cryptographic operations                     |
+| Normalization      | Unicode NFC (Normalization Form Canonical Composition) |
+| Length calculation | Each Unicode code point counts as one character        |
+| Maximum length     | At least 64 characters                                 |
+| Minimum length     | 1 character (empty passphrases rejected)               |
+
+**** Implementation Notes
+
+- Passphrase strings should be normalized to NFC before processing with scrypt
+- Use ~System.Text.Encoding.UTF8.GetBytes~ to convert normalized passphrase to bytes
+- Each Unicode code point should be counted as a single character for length validation
+- Reject overlong UTF-8 sequences and invalid Unicode encodings
+- This aligns with NIST SP 800-63B-4 (2024) password guidelines
+
+** 8. Implementation Phases
+:PROPERTIES:
+:CUSTOM_ID: implementation-phases
+:END:
+
+*** Phase 1: Core Library Basics                                   :PROPERTIES:
+:CUSTOM_ID: phase-1-core-library-basics
+:END:
+- Basic file format (header + payload)
+- ChaCha20-Poly1305 encryption
+- X25519 recipient type
+- Base64/Bech32 encoding
+- Unit tests for core functionality
+
+*** Phase 2: Scrypt Passphrase Support                             :PROPERTIES:
+:CUSTOM_ID: phase-2-scrypt-passphrase-support
+:END:
+- Scrypt passphrase recipient
+- Unit tests for passphrase functionality
+
+*** Phase 3: SSH Key Support                                      :PROPERTIES:
+:CUSTOM_ID: phase-3-ssh-key-support
+:END:
+- SSH key support (encrypt with public keys, decrypt with private keys)
+- GitHub key URL parsing
+- Unit tests for SSH functionality
+
+*** Phase 4: ASCII Armor                                          :PROPERTIES:
+:CUSTOM_ID: phase-4-ascii-armor
+:END:
+- PEM encoding with "AGE ENCRYPTED FILE" label
+- RFC 7468 compliant format
+- Unit tests for armor functionality
+
+*** Phase 5: CLI Application                                      :PROPERTIES:
+:CUSTOM_ID: phase-5-cli-application
+:END:
+- CLI application with feature parity to reference implementation
+- Integration tests
+
+*** Phase 6: Post-Quantum Support (Future)                         :PROPERTIES:
+:CUSTOM_ID: phase-6-post-quantum-support-future
+:END:
+- ML-KEM768-X25519 (X-Wing hybrid)
+- P256-Tag recipients
+- ML-KEM768-P256-Tag recipients
+- =age-keygen --pq= support
+
+** 9. Success Criteria
+:PROPERTIES:
+:CUSTOM_ID: success-criteria
+:END:
+
+1. Library can encrypt files that reference implementation can decrypt
+2. Library can decrypt files encrypted by reference implementation
+3. CLI provides feature parity with =age= and =age-keygen=
+4. All official test vectors pass
+5. Code passes static analysis and linting
