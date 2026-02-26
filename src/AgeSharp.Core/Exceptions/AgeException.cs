@@ -30,3 +30,15 @@ public class AgeFormatException : AgeException
     /// <param name="message">The message that describes the error.</param>
     public AgeFormatException(string message) : base(message) { }
 }
+
+/// <summary>
+/// Exception thrown when an invalid key is encountered.
+/// </summary>
+public class AgeKeyException : AgeException
+{
+    /// <summary>
+    /// Initializes a new instance of the <see cref="AgeKeyException"/> class with a specified error message.
+    /// </summary>
+    /// <param name="message">The message that describes the error.</param>
+    public AgeKeyException(string message) : base(message) { }
+}
