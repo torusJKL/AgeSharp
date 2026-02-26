@@ -1,0 +1,47 @@
+* AgeSharp
+
+C# implementation of the [[https://github.com/str4d/age][Age]] file encryption format.
+
+=Age= is a simple, modern and secure file encryption tool.
+
+*Note: This is not affiliated with the official Age project.*
+
+** Prerequisites
+
+- .NET 10 SDK
+
+** Build
+
+#+begin_src shell
+dotnet build src/AgeSharp.Core/AgeSharp.Core.csproj
+#+end_src
+
+** Test
+
+#+begin_src shell
+dotnet test tests/AgeSharp.Tests/AgeSharp.Tests.csproj
+#+end_src
+
+** Project Structure
+
+#+begin_example
+AgeSharp/
+├── src/
+│   └── AgeSharp.Core/       # Core library
+│       ├── Encoding/        # Base64, Bech32 utilities
+│       └── Exceptions/      # Custom exceptions
+├── tests/
+│   └── AgeSharp.Tests/      # Unit tests
+├── doc/                     # Documentation
+│   └── requirements.org     # Detailed requirements
+├── README.org               # This file
+└── LICENSE                  # Apache 2.0 license
+#+end_example
+
+** Specification
+
+See the [[https://age-encryption.org/v1][Age specification]] for detailed format information.
+
+** License
+
+Licensed under the Apache License, Version 2.0. See [[file:LICENSE][LICENSE]] for details.

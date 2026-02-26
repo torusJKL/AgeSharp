@@ -40,6 +40,7 @@ ScaffoldingReadMe.txt
 ~$*
 *~
 CodeCoverage/
+coveragereport/
 
 # MSBuild Binary and Structured Log
 *.binlog
@@ -55,4 +56,3 @@ nunit-*.xml
 
 # hidden files & folders
 .*
-
