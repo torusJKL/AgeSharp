@@ -13,29 +13,58 @@ C# implementation of the [[https://github.com/str4d/age][Age]] file encryption f
 ** Build
 
 #+begin_src shell
-dotnet build src/AgeSharp.Core/AgeSharp.Core.csproj
+dotnet build
 #+end_src
 
 ** Test
 
 #+begin_src shell
-dotnet test tests/AgeSharp.Tests/AgeSharp.Tests.csproj
+dotnet test
 #+end_src
+
+** CLI Usage
+
+*** age-keygen
+
+Generate a new X25519 identity key pair.
+
+#+begin_src shell
+# Generate key to stdout
+dotnet run --project src/AgeSharp.CLI.KeyGen
+
+# Generate key to file
+dotnet run --project src/AgeSharp.CLI.KeyGen -- -o key.txt
+#+end_src
+
+Output format:
+#+begin_example
+# created: 2026-02-27T00:30:33+02:00
+# public key: age1n0szz7y4u757g66s2qkmv7tmrtpq55h6ve9tvugutwttwtcs99jsqlrx6j
+AGE-SECRET-KEY-1RJD99JTCZLF60ACFAH9T34FF7XPFH5JF79VJNL8X3GA856KMDU5SZ0UU85
+#+end_example
+
+*** age (main CLI)
+
+Main encryption/decryption tool (not yet implemented).
 
 ** Project Structure
 
 #+begin_example
 AgeSharp/
 ├── src/
-│   └── AgeSharp.Core/       # Core library
-│       ├── Encoding/        # Base64, Bech32 utilities
-│       └── Exceptions/      # Custom exceptions
+│   ├── AgeSharp.Core/         # Core library
+│   │   ├── Encoding/          # Base64, Bech32 utilities
+│   │   ├── Headers/          # Age header parsing/generation
+│   │   ├── Keys/             # Key types (X25519, etc.)
+│   │   └── Exceptions/        # Custom exceptions
+│   ├── AgeSharp.CLI.Age/     # Main CLI (age)
+│   └── AgeSharp.CLI.KeyGen/  # Key generator (age-keygen)
 ├── tests/
-│   └── AgeSharp.Tests/      # Unit tests
-├── doc/                     # Documentation
-│   └── requirements.org     # Detailed requirements
-├── README.org               # This file
-└── LICENSE                  # Apache 2.0 license
+│   └── AgeSharp.Tests/        # Unit tests
+├── doc/                      # Documentation
+│   └── requirements.org      # Detailed requirements
+├── README.org                # This file
+└── LICENSE                   # Apache 2.0 license
 #+end_example
 
 ** Specification

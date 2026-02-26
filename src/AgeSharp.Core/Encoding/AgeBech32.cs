@@ -68,6 +68,11 @@ internal static class AgeBech32
         return Decode(encoded, IdentityHrp);
     }
 
+    internal static byte[] DecodeIdentityToPrivateKey(string encoded)
+    {
+        return DecodeIdentity(encoded);
+    }
+
     internal static byte[] DecodeRecipient(string encoded)
     {
         ArgumentNullException.ThrowIfNull(encoded);

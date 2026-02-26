@@ -34,4 +34,18 @@ public static class AgeKeyGenerator
 
         return identity.ToRecipientString();
     }
+
+    /// <summary>
+    /// Parses an identity string and returns the corresponding identity.
+    /// </summary>
+    /// <param name="identityString">The identity string (e.g., AGE-SECRET-KEY-1...)</param>
+    /// <returns>The identity.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when identityString is null.</exception>
+    public static IIdentity ParseIdentity(string identityString)
+    {
+        ArgumentNullException.ThrowIfNull(identityString);
+
+        var privateKey = AgeSharp.Core.Encoding.AgeBech32.DecodeIdentityToPrivateKey(identityString);
+        return new X25519Identity(privateKey);
+    }
 }
