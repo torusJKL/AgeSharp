@@ -1,7 +1,6 @@
 using System.CommandLine;
 
 using AgeSharp.Core;
-using AgeSharp.Core.Encoding;
 
 namespace AgeSharp.KeyGen;
 

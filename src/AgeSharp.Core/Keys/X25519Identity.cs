@@ -2,11 +2,12 @@ using System.Security.Cryptography;
 
 using AgeSharp.Core.Encoding;
 using AgeSharp.Core.Exceptions;
+using AgeSharp.Core.Headers;
 using NSec.Cryptography;
 
 namespace AgeSharp.Core.Keys;
 
-internal sealed class X25519Identity : IIdentity
+internal sealed class X25519Identity : IIdentity, IIdentityStanzaUnwrapper
 {
     private const int KeySize = 32;
 
@@ -40,4 +41,24 @@ internal sealed class X25519Identity : IIdentity
     public string ToRecipientString() => ToRecipient().ToRecipientString();
 
     public X25519Recipient ToRecipient() => new(GetPublicKey());
+
+    public byte[]? Unwrap(ParsedStanza stanza)
+    {
+        if (stanza.Type != "X25519")
+        {
+            return null;
+        }
+
+        try
+        {
+            var x25519Stanza = new X25519Stanza(
+                Base64NoPadding.Decode(stanza.Arguments[0]),
+                stanza.Body);
+            return x25519Stanza.Unwrap(_privateKey);
+        }
+        catch
+        {
+            return null;
+        }
+    }
 }

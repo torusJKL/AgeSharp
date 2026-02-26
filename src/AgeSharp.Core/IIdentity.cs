@@ -1,9 +1,10 @@
+using AgeSharp.Core.Headers;
 using AgeSharp.Core.Keys;
 
 namespace AgeSharp.Core;
 
 /// <summary>
-/// Represents an identity (private key) for age encryption.
+/// Represents an identity (private key) for age decryption.
 /// </summary>
 public interface IIdentity
 {
@@ -19,8 +20,13 @@ public interface IIdentity
     RecipientType Type { get; }
 
     /// <summary>
-    /// Returns the recipient encoded as a string.
+    /// Returns the recipient (public key) derived from this identity.
     /// </summary>
-    /// <returns>The recipient string (e.g., age1...)</returns>
+    /// <returns>The recipient string.</returns>
     string ToRecipientString();
+}
+
+internal interface IIdentityStanzaUnwrapper : IIdentity
+{
+    byte[]? Unwrap(ParsedStanza stanza);
 }

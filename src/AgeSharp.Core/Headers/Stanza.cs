@@ -2,14 +2,31 @@ using AgeSharp.Core.Encoding;
 
 namespace AgeSharp.Core.Headers;
 
-internal abstract class Stanza
+/// <summary>
+/// Represents a stanza in an age file header.
+/// </summary>
+public abstract class Stanza
 {
+    /// <summary>
+    /// Gets the type of the stanza.
+    /// </summary>
     public abstract string Type { get; }
 
+    /// <summary>
+    /// Gets the arguments of the stanza.
+    /// </summary>
     public string[] Arguments { get; }
 
+    /// <summary>
+    /// Gets the body of the stanza.
+    /// </summary>
     public byte[] Body { get; }
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="Stanza"/> class.
+    /// </summary>
+    /// <param name="arguments">The stanza arguments.</param>
+    /// <param name="body">The stanza body.</param>
     protected Stanza(string[] arguments, byte[] body)
     {
         ArgumentNullException.ThrowIfNull(arguments);

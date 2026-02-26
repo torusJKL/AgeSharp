@@ -1,9 +1,10 @@
 using AgeSharp.Core.Encoding;
 using AgeSharp.Core.Exceptions;
+using AgeSharp.Core.Headers;
 
 namespace AgeSharp.Core.Keys;
 
-internal sealed class X25519Recipient : IRecipient
+internal sealed class X25519Recipient : IRecipient, IRecipientStanzaFactory
 {
     private const int KeySize = 32;
 
@@ -27,4 +28,9 @@ internal sealed class X25519Recipient : IRecipient
     public byte[] GetPublicKey() => _publicKey;
 
     public string ToRecipientString() => AgeBech32.EncodeRecipient(_publicKey);
+
+    public Stanza CreateStanza(byte[] fileKey)
+    {
+        return X25519Stanza.Create(fileKey, _publicKey);
+    }
 }

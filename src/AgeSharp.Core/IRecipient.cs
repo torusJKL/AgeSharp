@@ -1,3 +1,4 @@
+using AgeSharp.Core.Headers;
 using AgeSharp.Core.Keys;
 
 namespace AgeSharp.Core;
@@ -17,4 +18,9 @@ public interface IRecipient
     /// Gets the type of the recipient.
     /// </summary>
     RecipientType Type { get; }
+}
+
+internal interface IRecipientStanzaFactory : IRecipient
+{
+    Stanza CreateStanza(byte[] fileKey);
 }

@@ -34,11 +34,11 @@ internal static class PayloadCrypter
     internal static byte[] EncryptChunk(byte[] plaintext, byte[] payloadKey, ulong chunkIndex, bool isFinal)
     {
         var nonce = ConstructNonce(chunkIndex, isFinal);
-        using var aes = new ChaCha20Poly1305(payloadKey);
+        using var chacha = new ChaCha20Poly1305(payloadKey);
         var ciphertext = new byte[plaintext.Length];
         var tag = new byte[TagSize];
 
-        aes.Encrypt(nonce, plaintext, Array.Empty<byte>(), ciphertext, tag);
+        chacha.Encrypt(nonce, plaintext, ciphertext, tag);
 
         var result = new byte[plaintext.Length + TagSize];
         Buffer.BlockCopy(ciphertext, 0, result, 0, plaintext.Length);
@@ -62,9 +62,9 @@ internal static class PayloadCrypter
         Buffer.BlockCopy(ciphertextAndTag, 0, ciphertext, 0, ciphertextLength);
         Buffer.BlockCopy(ciphertextAndTag, ciphertextLength, tag, 0, TagSize);
 
-        using var aes = new ChaCha20Poly1305(payloadKey);
+        using var chacha = new ChaCha20Poly1305(payloadKey);
         var plaintext = new byte[ciphertextLength];
-        aes.Decrypt(nonce, ciphertext, Array.Empty<byte>(), tag, plaintext);
+        chacha.Decrypt(nonce, ciphertext, tag, plaintext);
 
         return plaintext;
     }

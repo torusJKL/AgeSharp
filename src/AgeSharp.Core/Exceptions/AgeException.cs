@@ -42,3 +42,51 @@ public class AgeKeyException : AgeException
     /// <param name="message">The message that describes the error.</param>
     public AgeKeyException(string message) : base(message) { }
 }
+
+/// <summary>
+/// Exception thrown when encryption fails.
+/// </summary>
+public class AgeEncryptionException : AgeException
+{
+    /// <summary>
+    /// Initializes a new instance of the <see cref="AgeEncryptionException"/> class with a specified error message.
+    /// </summary>
+    /// <param name="message">The message that describes the error.</param>
+    public AgeEncryptionException(string message) : base(message) { }
+}
+
+/// <summary>
+/// Exception thrown when decryption fails.
+/// </summary>
+public class AgeDecryptionException : AgeException
+{
+    /// <summary>
+    /// Initializes a new instance of the <see cref="AgeDecryptionException"/> class with a specified error message.
+    /// </summary>
+    /// <param name="message">The message that describes the error.</param>
+    public AgeDecryptionException(string message) : base(message) { }
+}
+
+/// <summary>
+/// Exception thrown when an unsupported feature is encountered.
+/// </summary>
+public class AgeUnsupportedFeatureException : AgeException
+{
+    /// <summary>
+    /// Initializes a new instance of the <see cref="AgeUnsupportedFeatureException"/> class with a specified error message.
+    /// </summary>
+    /// <param name="message">The message that describes the error.</param>
+    public AgeUnsupportedFeatureException(string message) : base(message) { }
+}
+
+/// <summary>
+/// Exception thrown when no matching identity is found during decryption.
+/// </summary>
+public class AgeIdentityNotFoundException : AgeDecryptionException
+{
+    /// <summary>
+    /// Initializes a new instance of the <see cref="AgeIdentityNotFoundException"/> class with a specified error message.
+    /// </summary>
+    /// <param name="message">The message that describes the error.</param>
+    public AgeIdentityNotFoundException(string message) : base(message) { }
+}
