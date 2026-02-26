@@ -17,4 +17,10 @@ public interface IIdentity
     /// Gets the type of the identity.
     /// </summary>
     RecipientType Type { get; }
+
+    /// <summary>
+    /// Returns the recipient encoded as a string.
+    /// </summary>
+    /// <returns>The recipient string (e.g., age1...)</returns>
+    string ToRecipientString();
 }

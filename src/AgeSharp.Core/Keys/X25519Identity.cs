@@ -37,5 +37,7 @@ internal sealed class X25519Identity : IIdentity
 
     public string ToIdentityString() => AgeBech32.EncodeIdentity(_privateKey);
 
+    public string ToRecipientString() => ToRecipient().ToRecipientString();
+
     public X25519Recipient ToRecipient() => new(GetPublicKey());
 }

@@ -1,6 +1,5 @@
 using System.Security.Cryptography;
 
-using AgeSharp.Core.Exceptions;
 using AgeSharp.Core.Keys;
 
 namespace AgeSharp.Core;
@@ -29,16 +28,10 @@ public static class AgeKeyGenerator
     /// <param name="identity">The identity to get the recipient string for.</param>
     /// <returns>The recipient string.</returns>
     /// <exception cref="ArgumentNullException">Thrown when identity is null.</exception>
-    /// <exception cref="AgeKeyException">Thrown when the identity type is unsupported.</exception>
     public static string GetRecipientString(IIdentity identity)
     {
         ArgumentNullException.ThrowIfNull(identity);
 
-        if (identity is X25519Identity x25519Identity)
-        {
-            return x25519Identity.ToRecipient().ToRecipientString();
-        }
-
-        throw new AgeKeyException($"Unsupported identity type: {identity.GetType().Name}");
+        return identity.ToRecipientString();
     }
 }
