@@ -7,6 +7,11 @@ namespace AgeSharp.Core.Headers;
 
 internal sealed class ParsedStanza
 {
+    private static readonly Dictionary<string, Func<ParsedStanza, string?>> RecipientKeyConverters = new()
+    {
+        ["X25519"] = X25519ToRecipientKey
+    };
+
     public string Type { get; }
     public string[] Arguments { get; }
     public byte[] Body { get; }
@@ -16,6 +21,36 @@ internal sealed class ParsedStanza
         Type = type;
         Arguments = arguments;
         Body = body;
+    }
+
+    public string? TryGetRecipientKey()
+    {
+        return RecipientKeyConverters.TryGetValue(Type, out var converter) 
+            ? converter(this) 
+            : null;
+    }
+
+    private static string? X25519ToRecipientKey(ParsedStanza stanza)
+    {
+        if (stanza.Arguments.Length == 0)
+        {
+            return null;
+        }
+
+        try
+        {
+            var ephemeralKey = Base64NoPadding.Decode(stanza.Arguments[0]);
+            if (ephemeralKey.Length != 32)
+            {
+                return null;
+            }
+
+            return AgeBech32.EncodeRecipient(ephemeralKey);
+        }
+        catch
+        {
+            return null;
+        }
     }
 }
 
