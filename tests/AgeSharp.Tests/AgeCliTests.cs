@@ -58,7 +58,7 @@ public class AgeCliTests
             }
             Assert.True(File.Exists(encryptedFile));
 
-            var decryptResult = await RunAsync("dotnet", $"run --project \"{CliProjectPath}\" -- -d -i \"{keyFile}\" -o \"{decryptedFile}\" \"{encryptedFile}\"");
+            var decryptResult = await RunAsync("dotnet", $"run --project \"{CliProjectPath}\" -- -d -I \"{keyFile}\" -o \"{decryptedFile}\" \"{encryptedFile}\"");
             Assert.Equal(0, decryptResult.ExitCode);
 
             var decryptedData = await File.ReadAllTextAsync(decryptedFile);
@@ -135,10 +135,10 @@ public class AgeCliTests
             var encryptResult = await RunAsync("dotnet", $"run --project \"{CliProjectPath}\" -- -r \"{publicKey1}\" -r \"{publicKey2}\" -o \"{encryptedFile}\" \"{plaintextFile}\"");
             Assert.Equal(0, encryptResult.ExitCode);
 
-            var decryptResult1 = await RunAsync("dotnet", $"run --project \"{CliProjectPath}\" -- -d -i \"{keyFile1}\" -o \"{decryptedFile1}\" \"{encryptedFile}\"");
+            var decryptResult1 = await RunAsync("dotnet", $"run --project \"{CliProjectPath}\" -- -d -I \"{keyFile1}\" -o \"{decryptedFile1}\" \"{encryptedFile}\"");
             Assert.Equal(0, decryptResult1.ExitCode);
 
-            var decryptResult2 = await RunAsync("dotnet", $"run --project \"{CliProjectPath}\" -- -d -i \"{keyFile2}\" -o \"{decryptedFile2}\" \"{encryptedFile}\"");
+            var decryptResult2 = await RunAsync("dotnet", $"run --project \"{CliProjectPath}\" -- -d -I \"{keyFile2}\" -o \"{decryptedFile2}\" \"{encryptedFile}\"");
             Assert.Equal(0, decryptResult2.ExitCode);
 
             var decryptedData1 = await File.ReadAllTextAsync(decryptedFile1);
@@ -198,8 +198,153 @@ public class AgeCliTests
 
             await RunAsync("dotnet", $"run --project \"{KeyGenProjectPath}\" -o \"{keyFile2}\"");
 
-            var result = await RunAsync("dotnet", $"run --project \"{CliProjectPath}\" -- -d -i \"{keyFile2}\" -o \"{tempDir}/out.txt\" \"{encryptedFile}\"");
+            var result = await RunAsync("dotnet", $"run --project \"{CliProjectPath}\" -- -d -I \"{keyFile2}\" -o \"{tempDir}/out.txt\" \"{encryptedFile}\"");
             Assert.NotEqual(0, result.ExitCode);
+        }
+        finally
+        {
+            Directory.Delete(tempDir, true);
+        }
+    }
+
+    [Fact]
+    public async Task Encrypt_WithArmor_ReturnsArmoredFile()
+    {
+        await BuildProjectAsync(CliProjectPath);
+        
+        var originalData = "Hello, World with armor!";
+        var tempDir = Path.Combine(Path.GetTempPath(), $"agesharp_test_{Guid.NewGuid()}");
+        Directory.CreateDirectory(tempDir);
+
+        try
+        {
+            var keyFile = Path.Combine(tempDir, "key.txt");
+            var plaintextFile = Path.Combine(tempDir, "plain.txt");
+            var encryptedFile = Path.Combine(tempDir, "encrypted.age");
+
+            await File.WriteAllTextAsync(plaintextFile, originalData);
+
+            var keyGenResult = await RunAsync("dotnet", $"run --project \"{KeyGenProjectPath}\" -o \"{keyFile}\"");
+            Assert.Equal(0, keyGenResult.ExitCode);
+
+            var publicKey = await GetPublicKeyFromFile(keyFile);
+
+            var encryptResult = await RunAsync("dotnet", $"run --project \"{CliProjectPath}\" -- -r \"{publicKey}\" -a -o \"{encryptedFile}\" \"{plaintextFile}\"");
+            Assert.Equal(0, encryptResult.ExitCode);
+            Assert.True(File.Exists(encryptedFile));
+
+            var encryptedContent = await File.ReadAllTextAsync(encryptedFile);
+            Assert.StartsWith("-----BEGIN AGE ENCRYPTED FILE-----", encryptedContent);
+            Assert.EndsWith("-----END AGE ENCRYPTED FILE-----\n", encryptedContent);
+        }
+        finally
+        {
+            Directory.Delete(tempDir, true);
+        }
+    }
+
+    [Fact]
+    public async Task Encrypt_WithArmor_Decrypt_ReturnsOriginalData()
+    {
+        await BuildProjectAsync(CliProjectPath);
+        
+        var originalData = "Test data for armor encryption";
+        var tempDir = Path.Combine(Path.GetTempPath(), $"agesharp_test_{Guid.NewGuid()}");
+        Directory.CreateDirectory(tempDir);
+
+        try
+        {
+            var keyFile = Path.Combine(tempDir, "key.txt");
+            var plaintextFile = Path.Combine(tempDir, "plain.txt");
+            var encryptedFile = Path.Combine(tempDir, "encrypted.age");
+            var decryptedFile = Path.Combine(tempDir, "decrypted.txt");
+
+            await File.WriteAllTextAsync(plaintextFile, originalData);
+
+            var keyGenResult = await RunAsync("dotnet", $"run --project \"{KeyGenProjectPath}\" -o \"{keyFile}\"");
+            Assert.Equal(0, keyGenResult.ExitCode);
+
+            var publicKey = await GetPublicKeyFromFile(keyFile);
+
+            var encryptResult = await RunAsync("dotnet", $"run --project \"{CliProjectPath}\" -- -r \"{publicKey}\" --armor -o \"{encryptedFile}\" \"{plaintextFile}\"");
+            Assert.Equal(0, encryptResult.ExitCode);
+
+            var decryptResult = await RunAsync("dotnet", $"run --project \"{CliProjectPath}\" -- -d -I \"{keyFile}\" -o \"{decryptedFile}\" \"{encryptedFile}\"");
+            Assert.Equal(0, decryptResult.ExitCode);
+
+            var decryptedData = await File.ReadAllTextAsync(decryptedFile);
+            Assert.Equal(originalData, decryptedData);
+        }
+        finally
+        {
+            Directory.Delete(tempDir, true);
+        }
+    }
+
+    [Fact]
+    public async Task Decrypt_ArmoredFile_AutoDetectsAndDecrypts()
+    {
+        await BuildProjectAsync(CliProjectPath);
+        
+        var originalData = "Auto-detect armored file";
+        var tempDir = Path.Combine(Path.GetTempPath(), $"agesharp_test_{Guid.NewGuid()}");
+        Directory.CreateDirectory(tempDir);
+
+        try
+        {
+            var keyFile = Path.Combine(tempDir, "key.txt");
+            var plaintextFile = Path.Combine(tempDir, "plain.txt");
+            var encryptedFile = Path.Combine(tempDir, "encrypted.age");
+            var decryptedFile = Path.Combine(tempDir, "decrypted.txt");
+
+            await File.WriteAllTextAsync(plaintextFile, originalData);
+
+            var keyGenResult = await RunAsync("dotnet", $"run --project \"{KeyGenProjectPath}\" -o \"{keyFile}\"");
+            Assert.Equal(0, keyGenResult.ExitCode);
+
+            var publicKey = await GetPublicKeyFromFile(keyFile);
+
+            var encryptResult = await RunAsync("dotnet", $"run --project \"{CliProjectPath}\" -- -r \"{publicKey}\" -a -o \"{encryptedFile}\" \"{plaintextFile}\"");
+            Assert.Equal(0, encryptResult.ExitCode);
+
+            var decryptResult = await RunAsync("dotnet", $"run --project \"{CliProjectPath}\" -- -d -I \"{keyFile}\" -o \"{decryptedFile}\" \"{encryptedFile}\"");
+            Assert.Equal(0, decryptResult.ExitCode);
+
+            var decryptedData = await File.ReadAllTextAsync(decryptedFile);
+            Assert.Equal(originalData, decryptedData);
+        }
+        finally
+        {
+            Directory.Delete(tempDir, true);
+        }
+    }
+
+    [Fact]
+    public async Task Encrypt_WithoutArmor_ProducesBinaryFile()
+    {
+        await BuildProjectAsync(CliProjectPath);
+        
+        var tempDir = Path.Combine(Path.GetTempPath(), $"agesharp_test_{Guid.NewGuid()}");
+        Directory.CreateDirectory(tempDir);
+
+        try
+        {
+            var keyFile = Path.Combine(tempDir, "key.txt");
+            var plaintextFile = Path.Combine(tempDir, "plain.txt");
+            var encryptedFile = Path.Combine(tempDir, "encrypted.age");
+
+            await File.WriteAllTextAsync(plaintextFile, "test");
+
+            var keyGenResult = await RunAsync("dotnet", $"run --project \"{KeyGenProjectPath}\" -o \"{keyFile}\"");
+            Assert.Equal(0, keyGenResult.ExitCode);
+
+            var publicKey = await GetPublicKeyFromFile(keyFile);
+
+            var encryptResult = await RunAsync("dotnet", $"run --project \"{CliProjectPath}\" -- -r \"{publicKey}\" -o \"{encryptedFile}\" \"{plaintextFile}\"");
+            Assert.Equal(0, encryptResult.ExitCode);
+
+            var encryptedContent = await File.ReadAllTextAsync(encryptedFile);
+            Assert.False(encryptedContent.StartsWith("-----BEGIN AGE ENCRYPTED FILE-----"));
         }
         finally
         {

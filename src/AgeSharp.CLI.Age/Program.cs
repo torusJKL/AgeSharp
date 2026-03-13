@@ -36,10 +36,16 @@ class Program
             aliases: ["-i", "--identity"],
             description: "Use the identity file at PATH. Can be repeated.");
 
+        var armorOption = new Option<bool>(
+            aliases: ["-a", "--armor"],
+            description: "Use ASCII armor (PEM encoding) for the output.");
+
         var inputArgument = new Argument<string?>(
-            name: "INPUT",
-            description: "Input file to encrypt or decrypt. Defaults to stdin.",
-            getDefaultValue: () => null);
+            name: "input",
+            description: "Input file to encrypt or decrypt. Defaults to stdin.")
+        {
+            Arity = ArgumentArity.ZeroOrOne
+        };
 
         rootCommand.AddOption(encryptOption);
         rootCommand.AddOption(decryptOption);
@@ -47,13 +53,14 @@ class Program
         rootCommand.AddOption(recipientOption);
         rootCommand.AddOption(recipientsFileOption);
         rootCommand.AddOption(identityOption);
+        rootCommand.AddOption(armorOption);
         rootCommand.AddArgument(inputArgument);
 
-        rootCommand.SetHandler(async (encrypt, decrypt, output, recipients, recipientsFiles, identities, input) =>
+        rootCommand.SetHandler(async (encrypt, decrypt, output, recipients, recipientsFiles, identities, armor, input) =>
         {
-            bool hasInput = encrypt || decrypt || 
+            bool hasInput = encrypt || decrypt ||
                             false == string.IsNullOrEmpty(output) ||
-                            recipients.Length > 0 || recipientsFiles.Length > 0 || 
+                            recipients.Length > 0 || recipientsFiles.Length > 0 ||
                             identities.Length > 0 ||
                             false == string.IsNullOrEmpty(input);
 
@@ -69,19 +76,19 @@ class Program
             }
             else if (recipients.Length > 0 || recipientsFiles.Length > 0)
             {
-                await Encrypt(output, recipients, recipientsFiles, input);
+                await Encrypt(output, recipients, recipientsFiles, armor, input);
             }
             else
             {
                 Console.Error.WriteLine("Error: at least one recipient is required");
                 Environment.Exit(1);
             }
-        }, encryptOption, decryptOption, outputOption, recipientOption, recipientsFileOption, identityOption, inputArgument);
+        }, encryptOption, decryptOption, outputOption, recipientOption, recipientsFileOption, identityOption, armorOption, inputArgument);
 
         return await rootCommand.InvokeAsync(args);
     }
 
-    private static async Task Encrypt(string? output, string[] recipients, string[] recipientsFiles, string? input)
+    private static async Task Encrypt(string? output, string[] recipients, string[] recipientsFiles, bool armor, string? input)
     {
         var recipientList = new List<IRecipient>();
 
@@ -156,7 +163,8 @@ class Program
 
             using (outputStream)
             {
-                await Age.EncryptAsync(inputStream, outputStream, recipientList);
+                var options = new EncryptionOptions { Armor = armor };
+                await Age.EncryptAsync(inputStream, outputStream, recipientList, options);
             }
         }
     }

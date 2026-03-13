@@ -111,12 +111,11 @@ public class AgeInspectorTests
         var encrypted = Age.EncryptAsync(testData, [AgeParser.ParseRecipient(identity.ToRecipientString())]).GetAwaiter().GetResult();
         var info = AgeInspector.Inspect(encrypted);
 
-        // Header + overhead + payload should be less than or equal to total size
-        // (payload is the encrypted data without the per-chunk overhead)
+        // Verify all sizes are positive
         Assert.True(info.HeaderSize > 0);
         Assert.True(info.Overhead > 0);
         Assert.True(info.PayloadSize > 0);
-        // Total file size = header + payload_with_overhead
-        Assert.Equal(encrypted.Length, info.HeaderSize + info.PayloadSize);
+        // Total file size = header + overhead + payload (encrypted)
+        Assert.Equal(encrypted.Length, info.HeaderSize + info.Overhead + info.PayloadSize);
     }
 }

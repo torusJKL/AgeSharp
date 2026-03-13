@@ -113,7 +113,14 @@ class Program
         var displayName = string.IsNullOrEmpty(filePath) || filePath == "-" ? "stdin" : Path.GetFileName(filePath);
         Console.WriteLine($"{displayName} is an age file, version \"{info.Version}\".");
         Console.WriteLine();
-        Console.WriteLine($"This file is encrypted to the following recipient types:");
+
+        if (info.IsArmor)
+        {
+            Console.WriteLine("This file is ASCII-armored.");
+            Console.WriteLine();
+        }
+
+        Console.WriteLine("This file is encrypted to the following recipient types:");
 
         foreach (var stanzaType in info.StanzaTypes)
         {
@@ -127,10 +134,21 @@ class Program
         Console.WriteLine("Size breakdown (assuming it decrypts successfully):");
         Console.WriteLine();
         Console.WriteLine($"    {"Header",-30}{info.HeaderSize,8} bytes");
+
+        if (info.IsArmor)
+        {
+            Console.WriteLine($"    {"Armor overhead",-30}{info.ArmorSize,8} bytes");
+        }
+
         Console.WriteLine($"    {"Encryption overhead",-30}{info.Overhead,8} bytes");
         Console.WriteLine($"    {"Payload",-30}{info.PayloadSize,8} bytes");
         Console.WriteLine($"                                -----------------");
-        Console.WriteLine($"    {"Total",-30}{info.HeaderSize + info.Overhead + info.PayloadSize,8} bytes");
+        var total = info.HeaderSize + info.Overhead + info.PayloadSize;
+        if (info.IsArmor)
+        {
+            total += info.ArmorSize;
+        }
+        Console.WriteLine($"    {"Total",-30}{total,8} bytes");
         Console.WriteLine();
         Console.WriteLine("Tip: for machine-readable output, use --json.");
     }

@@ -11,7 +11,6 @@ public static class AgeInspector
 {
     private const string ArmorHeader = "-----BEGIN AGE ENCRYPTED FILE-----";
     private const string ArmorFooter = "-----END AGE ENCRYPTED FILE-----";
-    private const int ChunkOverhead = 16; // ChaCha20-Poly1305 tag per chunk
     private const int ChunkSize = 64 * 1024; // 64 KiB
 
     /// <summary>
@@ -56,16 +55,18 @@ public static class AgeInspector
     {
         ArgumentNullException.ThrowIfNull(data);
 
-        var (version, stanzaTypes, recipientKeys, isArmor, headerSize, armorSize, postQuantum, mac) = ParseHeader(data);
-        var payloadSize = data.Length - armorSize - headerSize;
-        var overhead = CalculateOverhead(payloadSize);
+        var (version, stanzaTypes, recipientKeys, isArmor, headerSize, armorSize, postQuantum, mac, decodedLength) = ParseHeader(data);
+        var overhead = CalculateOverhead(decodedLength - headerSize);
+        var payloadSize = decodedLength - headerSize - overhead;
 
         return new AgeFileInfo(version, stanzaTypes, recipientKeys, isArmor, armorSize, headerSize, overhead, payloadSize, postQuantum, mac);
     }
 
-    private static (string Version, List<string> StanzaTypes, List<string> RecipientKeys, bool IsArmor, long HeaderSize, long ArmorSize, string PostQuantum, string? Mac) ParseHeader(byte[] data)
+    private static (string Version, List<string> StanzaTypes, List<string> RecipientKeys, bool IsArmor, long HeaderSize, long ArmorSize, string PostQuantum, string? Mac, long DecodedLength) ParseHeader(byte[] data)
     {
         var isArmor = AgeArmor.IsArmored(data);
+        var originalLength = data.Length;
+        long armorSize = 0;
 
         if (isArmor)
         {
@@ -76,10 +77,10 @@ public static class AgeInspector
                 throw new AgeFormatException("Invalid armored file: missing footer");
             }
 
-            data = AgeArmor.Decode(data);
+            var decodedData = AgeArmor.Decode(data);
+            armorSize = originalLength - decodedData.Length;
+            data = decodedData;
         }
-
-        var armorExtraSize = isArmor ? ArmorHeader.Length + ArmorFooter.Length + 2 : 0;
 
         // Find header end
         var headerEndIndex = FindHeaderEnd(data);
@@ -121,7 +122,7 @@ public static class AgeInspector
         // Determine post-quantum status
         var postQuantum = stanzaTypes.Any(t => t.StartsWith("mlkem", StringComparison.OrdinalIgnoreCase)) ? "yes" : "no";
 
-        return (version, stanzaTypes, recipientKeys, isArmor, headerSize, (long)armorExtraSize, postQuantum, mac);
+        return (version, stanzaTypes, recipientKeys, isArmor, headerSize, armorSize, postQuantum, mac, data.Length);
     }
 
     private static int FindHeaderEnd(byte[] data)
@@ -136,8 +137,11 @@ public static class AgeInspector
 
     private static long CalculateOverhead(long payloadSize)
     {
+        // Reference: streamOverhead in age uses:
+        // overhead = streamNonceSize (16) + numChunks * ChunkOverhead (16 per chunk)
         if (payloadSize <= 0) return 0;
         var numChunks = (payloadSize + ChunkSize - 1) / ChunkSize;
-        return numChunks * ChunkOverhead;
+        if (numChunks < 1) numChunks = 1;
+        return 16 + numChunks * 16;
     }
 }
