@@ -53,10 +53,25 @@ public static class Age
         }
 
         var header = HeaderWriter.Write(stanzas, fileKey);
-        var headerBytes = System.Text.Encoding.ASCII.GetBytes(header);
-        await output.WriteAsync(headerBytes, cancellationToken);
 
-        PayloadStream.WritePayload(input, output, fileKey, cancellationToken);
+        using var memStream = new MemoryStream();
+        var headerBytes = System.Text.Encoding.ASCII.GetBytes(header);
+        await memStream.WriteAsync(headerBytes, cancellationToken);
+
+        PayloadStream.WritePayload(input, memStream, fileKey, cancellationToken);
+
+        var encryptedData = memStream.ToArray();
+
+        if (options.Armor)
+        {
+            var armored = AgeArmor.Encode(encryptedData);
+            var armoredBytes = System.Text.Encoding.ASCII.GetBytes(armored);
+            await output.WriteAsync(armoredBytes, cancellationToken);
+        }
+        else
+        {
+            await output.WriteAsync(encryptedData, cancellationToken);
+        }
     }
 
     /// <summary>
@@ -84,6 +99,11 @@ public static class Age
         using var memStream = new MemoryStream();
         await input.CopyToAsync(memStream, cancellationToken);
         var allData = memStream.ToArray();
+
+        if (AgeArmor.IsArmored(allData))
+        {
+            allData = AgeArmor.Decode(allData);
+        }
 
         var headerEndIndex = FindHeaderEnd(allData);
         if (headerEndIndex < 0)

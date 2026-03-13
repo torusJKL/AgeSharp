@@ -65,27 +65,21 @@ public static class AgeInspector
 
     private static (string Version, List<string> StanzaTypes, List<string> RecipientKeys, bool IsArmor, long HeaderSize, long ArmorSize, string PostQuantum, string? Mac) ParseHeader(byte[] data)
     {
-        var isArmor = false;
-        var armorExtraSize = 0;
+        var isArmor = AgeArmor.IsArmored(data);
 
-        // Check for ASCII armor
-        if (data.Length > ArmorHeader.Length)
+        if (isArmor)
         {
-            var headerCheck = System.Text.Encoding.ASCII.GetString(data, 0, ArmorHeader.Length);
-            if (headerCheck == ArmorHeader)
+            var armorHeader = System.Text.Encoding.ASCII.GetString(data);
+            var footerIndex = armorHeader.IndexOf(ArmorFooter, StringComparison.Ordinal);
+            if (footerIndex < 0)
             {
-                isArmor = true;
-                armorExtraSize = ArmorHeader.Length + ArmorFooter.Length + 2; // +2 for newlines
-                var footerIndex = System.Text.Encoding.ASCII.GetString(data).IndexOf(ArmorFooter);
-                if (footerIndex < 0)
-                {
-                    throw new AgeFormatException("Invalid armored file: missing footer");
-                }
-
-                var base64Text = System.Text.Encoding.ASCII.GetString(data, ArmorHeader.Length, footerIndex - ArmorHeader.Length).Trim();
-                data = Base64NoPadding.Decode(base64Text);
+                throw new AgeFormatException("Invalid armored file: missing footer");
             }
+
+            data = AgeArmor.Decode(data);
         }
+
+        var armorExtraSize = isArmor ? ArmorHeader.Length + ArmorFooter.Length + 2 : 0;
 
         // Find header end
         var headerEndIndex = FindHeaderEnd(data);

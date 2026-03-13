@@ -38,13 +38,19 @@ public class AgeInspectorTests
         var recipient = identity.ToRecipientString();
         var testData = "Hello, World!"u8.ToArray();
 
-        var encrypted = Age.EncryptAsync(testData, [AgeParser.ParseRecipient(recipient)]).GetAwaiter().GetResult();
+        using var input = new MemoryStream(testData);
+        using var encryptedStream = new MemoryStream();
+        var options = new EncryptionOptions { Armor = true };
+        Age.EncryptAsync(input, encryptedStream, [AgeParser.ParseRecipient(recipient)], options).GetAwaiter().GetResult();
+        var encrypted = encryptedStream.ToArray();
 
         var info = AgeInspector.Inspect(encrypted);
 
         Assert.Equal("age-encryption.org/v1", info.Version);
         Assert.Single(info.StanzaTypes);
-        Assert.False(info.IsArmor);
+        Assert.Equal("X25519", info.StanzaTypes[0]);
+        Assert.True(info.IsArmor);
+        Assert.True(info.ArmorSize > 0);
     }
 
     [Fact]

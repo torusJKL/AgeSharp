@@ -296,4 +296,93 @@ public class AgeTests
 
         Assert.Equal(originalData, decrypted);
     }
+
+    [Fact]
+    public async Task Encrypt_WithArmor_ReturnsArmoredData()
+    {
+        var originalData = System.Text.Encoding.ASCII.GetBytes("Hello, World!");
+        var identity = AgeKeyGenerator.GenerateX25519Key();
+        var recipient = AgeParser.ParseRecipient(identity.ToRecipientString());
+
+        using var input = new MemoryStream(originalData);
+        using var encryptedStream = new MemoryStream();
+        var options = new EncryptionOptions { Armor = true };
+        await Age.EncryptAsync(input, encryptedStream, [recipient], options);
+
+        var encrypted = encryptedStream.ToArray();
+        Assert.True(AgeArmor.IsArmored(encrypted));
+    }
+
+    [Fact]
+    public async Task Encrypt_Decrypt_WithArmor_RoundtripsCorrectly()
+    {
+        var originalData = System.Text.Encoding.ASCII.GetBytes("Hello, World! This is a test message.");
+        var identity = AgeKeyGenerator.GenerateX25519Key();
+        var recipient = AgeParser.ParseRecipient(identity.ToRecipientString());
+
+        using var input = new MemoryStream(originalData);
+        using var encryptedStream = new MemoryStream();
+        var options = new EncryptionOptions { Armor = true };
+        await Age.EncryptAsync(input, encryptedStream, [recipient], options);
+
+        var encrypted = encryptedStream.ToArray();
+        var decrypted = await Age.DecryptAsync(encrypted, [identity]);
+
+        Assert.Equal(originalData, decrypted);
+    }
+
+    [Fact]
+    public async Task EncryptAsync_Stream_WithArmor_DecryptAsync_Stream_Roundtrip()
+    {
+        var originalData = System.Text.Encoding.ASCII.GetBytes("Stream test data for encryption and decryption");
+        var identity = AgeKeyGenerator.GenerateX25519Key();
+        var recipient = AgeParser.ParseRecipient(identity.ToRecipientString());
+
+        using var input = new MemoryStream(originalData);
+        using var encryptedStream = new MemoryStream();
+        var options = new EncryptionOptions { Armor = true };
+        await Age.EncryptAsync(input, encryptedStream, [recipient], options);
+
+        encryptedStream.Position = 0;
+        using var decryptedStream = new MemoryStream();
+        await Age.DecryptAsync(encryptedStream, decryptedStream, [identity]);
+
+        Assert.Equal(originalData, decryptedStream.ToArray());
+    }
+
+    [Fact]
+    public async Task Decrypt_ArmoredFile_AutoDetectsAndDecrypts()
+    {
+        var originalData = System.Text.Encoding.ASCII.GetBytes("Test data for auto-detect");
+        var identity = AgeKeyGenerator.GenerateX25519Key();
+        var recipient = AgeParser.ParseRecipient(identity.ToRecipientString());
+
+        using var input = new MemoryStream(originalData);
+        using var armoredStream = new MemoryStream();
+        var options = new EncryptionOptions { Armor = true };
+        await Age.EncryptAsync(input, armoredStream, [recipient], options);
+
+        var armored = armoredStream.ToArray();
+        var decrypted = await Age.DecryptAsync(armored, [identity]);
+
+        Assert.Equal(originalData, decrypted);
+    }
+
+    [Fact]
+    public async Task Decrypt_NonArmoredFile_WorksWithoutArmor()
+    {
+        var originalData = System.Text.Encoding.ASCII.GetBytes("Test data without armor");
+        var identity = AgeKeyGenerator.GenerateX25519Key();
+        var recipient = AgeParser.ParseRecipient(identity.ToRecipientString());
+
+        using var input = new MemoryStream(originalData);
+        using var encryptedStream = new MemoryStream();
+        var options = new EncryptionOptions { Armor = false };
+        await Age.EncryptAsync(input, encryptedStream, [recipient], options);
+
+        var encrypted = encryptedStream.ToArray();
+        var decrypted = await Age.DecryptAsync(encrypted, [identity]);
+
+        Assert.Equal(originalData, decrypted);
+    }
 }
