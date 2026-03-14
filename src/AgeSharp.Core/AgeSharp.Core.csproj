@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <PackageId>AgeSharp.Core</PackageId>
+    <Version>1.0.0</Version>
+    <Authors>AgeSharp</Authors>
+    <Description>Implementation of the Age file encryption format in C#</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="NSec.Cryptography" Version="25.4.0" />
+    <InternalsVisibleTo Include="AgeSharp.Tests" />
+  </ItemGroup>
+
+</Project>
