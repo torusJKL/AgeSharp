@@ -1,5 +1,4 @@
-using System.CommandLine;
-using System.CommandLine.Binding;
+using AgeSharp.CommandLine;
 using System.Text.Json;
 
 using AgeSharp.Core;
@@ -9,44 +8,51 @@ namespace AgeSharp.Inspect;
 
 class Program
 {
-    private const string Version = "0.1.0";
-
-    static int Main(string[] args)
+    static async Task<int> Main(string[] args)
     {
-        var rootCommand = new RootCommand("Inspect an age encrypted file");
+        var parser = new CommandLineParser("age-inspect");
 
-        var jsonOption = new Option<bool>(
-            name: "--json",
-            description: "Output as JSON");
-        rootCommand.AddOption(jsonOption);
+        parser.AddUsage("[--json] [FILE]");
 
-        var fileArgument = new Argument<string?>(
-            name: "FILE",
-            description: "Path to the age encrypted file (default: stdin)",
-            getDefaultValue: () => null);
-        rootCommand.AddArgument(fileArgument);
+        var jsonOption = parser.AddFlag<bool>(
+            ["--json"],
+            "Output as JSON");
 
-        var parseResult = rootCommand.Parse(args);
+        var versionOption = parser.AddFlag<bool>(
+            ["--version"],
+            "Print version information.");
 
-        if (parseResult.Errors.Count > 0)
+        var fileArgument = parser.AddArgument<string?>(
+            "FILE",
+            "Path to the age encrypted file (default: stdin)",
+            defaultValueFactory: () => null);
+
+        var result = parser.Parse(args);
+
+        if (args.Contains("--help") || args.Contains("-h"))
         {
-            foreach (var error in parseResult.Errors)
+            return await parser.InvokeAsync(["--help"]);
+        }
+
+        if (args.Contains("--version"))
+        {
+            Console.WriteLine(AgeSharp.Core.Version.GetVersion());
+            return 0;
+        }
+
+        if (result.Errors.Count > 0)
+        {
+            foreach (var error in result.Errors)
             {
                 Console.Error.WriteLine(error.Message);
             }
             return 1;
         }
 
-        var json = parseResult.GetValueForOption(jsonOption);
+        var json = result.GetValueForOption<bool>(jsonOption);
+        var filePath = result.GetValueForArgument<string?>(fileArgument);
 
-        if (args.Contains("--help") || args.Contains("-h"))
-        {
-            return rootCommand.InvokeAsync("--help").Result;
-        }
-
-        var filePath = parseResult.GetValueForArgument(fileArgument);
-
-        return InspectFile(json, filePath).GetAwaiter().GetResult();
+        return await InspectFile(json, filePath);
     }
 
     private static async Task<int> InspectFile(bool json, string? filePath)

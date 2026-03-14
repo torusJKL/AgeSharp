@@ -1,4 +1,4 @@
-using System.CommandLine;
+using AgeSharp.CommandLine;
 
 using AgeSharp.Core;
 
@@ -6,86 +6,107 @@ namespace AgeSharp.CLI;
 
 class Program
 {
-    private const string Version = "0.1.0";
-
     static async Task<int> Main(string[] args)
     {
-        var rootCommand = new RootCommand("AgeSharp - Age encryption tool");
+        var parser = new CommandLineParser("age");
 
-        var encryptOption = new Option<bool>(
-            aliases: ["-e", "--encrypt"],
-            description: "Encrypt the input to the output. Default if omitted.");
+        parser.AddUsage("[--encrypt] (-r RECIPIENT | -R PATH)... [--armor] [-o OUTPUT] [INPUT]");
+        parser.AddUsage("--decrypt [-i PATH]... [-o OUTPUT] [INPUT]");
 
-        var decryptOption = new Option<bool>(
-            aliases: ["-d", "--decrypt"],
-            description: "Decrypt the input to the output.");
+        var encryptOption = parser.AddFlag<bool>(
+            ["-e", "--encrypt"],
+            "Encrypt the input to the output. Default if omitted.");
 
-        var outputOption = new Option<string?>(
-            aliases: ["-o", "--output"],
-            description: "Write the result to the file at path OUTPUT.");
+        var decryptOption = parser.AddFlag<bool>(
+            ["-d", "--decrypt"],
+            "Decrypt the input to the output.");
 
-        var recipientOption = new Option<string[]>(
-            aliases: ["-r", "--recipient"],
-            description: "Encrypt to the specified RECIPIENT. Can be repeated.");
+        var outputOption = parser.AddOption(
+            ["-o", "--output"],
+            "Write the result to the file at path OUTPUT.");
 
-        var recipientsFileOption = new Option<string[]>(
-            aliases: ["-R", "--recipients-file"],
-            description: "Encrypt to recipients listed at PATH. Can be repeated.");
+        var recipientOption = parser.AddMultiValueOption(
+            ["-r", "--recipient"],
+            "Encrypt to the specified RECIPIENT. Can be repeated.");
 
-        var identityOption = new Option<string[]>(
-            aliases: ["-i", "--identity"],
-            description: "Use the identity file at PATH. Can be repeated.");
+        var recipientsFileOption = parser.AddMultiValueOption(
+            ["-R", "--recipients-file"],
+            "Encrypt to recipients listed at PATH. Can be repeated.");
 
-        var armorOption = new Option<bool>(
-            aliases: ["-a", "--armor"],
-            description: "Use ASCII armor (PEM encoding) for the output.");
+        var identityOption = parser.AddMultiValueOption(
+            ["-i", "--identity"],
+            "Use the identity file at PATH. Can be repeated.");
 
-        var inputArgument = new Argument<string?>(
-            name: "input",
-            description: "Input file to encrypt or decrypt. Defaults to stdin.")
+        var armorOption = parser.AddFlag<bool>(
+            ["-a", "--armor"],
+            "Use ASCII armor (PEM encoding) for the output.");
+
+        var versionOption = parser.AddFlag<bool>(
+            ["--version"],
+            "Print version information.");
+
+        var inputArgument = parser.AddArgument<string?>(
+            "input",
+            "Input file to encrypt or decrypt. Defaults to stdin.",
+            defaultValueFactory: () => null);
+
+        var result = parser.Parse(args);
+
+        if (args.Contains("--help") || args.Contains("-h"))
         {
-            Arity = ArgumentArity.ZeroOrOne
-        };
+            return await parser.InvokeAsync(["--help"]);
+        }
 
-        rootCommand.AddOption(encryptOption);
-        rootCommand.AddOption(decryptOption);
-        rootCommand.AddOption(outputOption);
-        rootCommand.AddOption(recipientOption);
-        rootCommand.AddOption(recipientsFileOption);
-        rootCommand.AddOption(identityOption);
-        rootCommand.AddOption(armorOption);
-        rootCommand.AddArgument(inputArgument);
-
-        rootCommand.SetHandler(async (encrypt, decrypt, output, recipients, recipientsFiles, identities, armor, input) =>
+        if (args.Contains("--version"))
         {
-            bool hasInput = encrypt || decrypt ||
-                            false == string.IsNullOrEmpty(output) ||
-                            recipients.Length > 0 || recipientsFiles.Length > 0 ||
-                            identities.Length > 0 ||
-                            false == string.IsNullOrEmpty(input);
+            Console.WriteLine(AgeSharp.Core.Version.GetVersion());
+            return 0;
+        }
 
-            if (!hasInput)
+        if (result.Errors.Count > 0)
+        {
+            foreach (var error in result.Errors)
             {
-                await rootCommand.InvokeAsync(["--help"]);
-                return;
+                Console.Error.WriteLine(error.Message);
             }
+            return 1;
+        }
 
-            if (decrypt)
-            {
-                await Decrypt(output, identities, input);
-            }
-            else if (recipients.Length > 0 || recipientsFiles.Length > 0)
-            {
-                await Encrypt(output, recipients, recipientsFiles, armor, input);
-            }
-            else
-            {
-                Console.Error.WriteLine("Error: at least one recipient is required");
-                Environment.Exit(1);
-            }
-        }, encryptOption, decryptOption, outputOption, recipientOption, recipientsFileOption, identityOption, armorOption, inputArgument);
+        var encrypt = result.GetValueForOption(encryptOption);
+        var decrypt = result.GetValueForOption(decryptOption);
+        var output = result.GetValueForOption(outputOption);
+        var recipients = result.GetValueForOption(recipientOption) ?? [];
+        var recipientsFiles = result.GetValueForOption(recipientsFileOption) ?? [];
+        var identities = result.GetValueForOption(identityOption) ?? [];
+        var armor = result.GetValueForOption(armorOption);
+        var input = result.GetValueForArgument(inputArgument);
 
-        return await rootCommand.InvokeAsync(args);
+        bool hasInput = encrypt || decrypt ||
+                        false == string.IsNullOrEmpty(output) ||
+                        recipients.Length > 0 || recipientsFiles.Length > 0 ||
+                        identities.Length > 0 ||
+                        false == string.IsNullOrEmpty(input);
+
+        if (!hasInput)
+        {
+            return await parser.InvokeAsync(["--help"]);
+        }
+
+        if (decrypt)
+        {
+            await Decrypt(output, identities, input);
+        }
+        else if (recipients.Length > 0 || recipientsFiles.Length > 0)
+        {
+            await Encrypt(output, recipients, recipientsFiles, armor, input);
+        }
+        else
+        {
+            Console.Error.WriteLine("Error: at least one recipient is required");
+            return 1;
+        }
+
+        return 0;
     }
 
     private static async Task Encrypt(string? output, string[] recipients, string[] recipientsFiles, bool armor, string? input)

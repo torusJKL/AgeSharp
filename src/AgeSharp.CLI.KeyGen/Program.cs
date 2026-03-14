@@ -1,4 +1,4 @@
-using System.CommandLine;
+using AgeSharp.CommandLine;
 
 using AgeSharp.Core;
 
@@ -6,41 +6,66 @@ namespace AgeSharp.KeyGen;
 
 class Program
 {
-    private const string Version = "0.1.0";
-
     static async Task<int> Main(string[] args)
     {
-        var rootCommand = new RootCommand("Generate a new age key pair");
+        var parser = new CommandLineParser("age-keygen");
 
-        var outputOption = new Option<string>(
-            aliases: ["-o", "--output"],
-            description: "Output file path (default: stdout)");
-        rootCommand.AddOption(outputOption);
+        parser.AddUsage("[-o OUTPUT]");
+        parser.AddUsage("-y [INPUT]");
 
-        var yOption = new Option<bool>(
-            name: "-y",
-            description: "Convert an identity file to a recipients file");
-        rootCommand.AddOption(yOption);
+        var outputOption = parser.AddOption(
+            ["-o", "--output"],
+            "Output file path (default: stdout)");
 
-        var inputArgument = new Argument<string?>(
-            name: "INPUT",
-            description: "Input file path (default: stdin)",
-            getDefaultValue: () => null);
-        rootCommand.AddArgument(inputArgument);
+        var yOption = parser.AddFlag<bool>(
+            ["-y"],
+            "Convert an identity file to a recipients file");
 
-        rootCommand.SetHandler(async (outputPath, yMode, inputPath) =>
+        var versionOption = parser.AddFlag<bool>(
+            ["--version"],
+            "Print version information.");
+
+        var inputArgument = parser.AddArgument<string?>(
+            "INPUT",
+            "Input file path (default: stdin)",
+            defaultValueFactory: () => null);
+
+        var result = parser.Parse(args);
+
+        if (args.Contains("--help") || args.Contains("-h"))
         {
-            if (yMode)
-            {
-                await ConvertIdentityToRecipient(outputPath, inputPath);
-            }
-            else
-            {
-                await GenerateKey(outputPath);
-            }
-        }, outputOption, yOption, inputArgument);
+            return await parser.InvokeAsync(["--help"]);
+        }
 
-        return await rootCommand.InvokeAsync(args);
+        if (args.Contains("--version"))
+        {
+            Console.WriteLine(AgeSharp.Core.Version.GetVersion());
+            return 0;
+        }
+
+        if (result.Errors.Count > 0)
+        {
+            foreach (var error in result.Errors)
+            {
+                Console.Error.WriteLine(error.Message);
+            }
+            return 1;
+        }
+
+        var outputPath = result.GetValueForOption(outputOption);
+        var yMode = result.GetValueForOption(yOption);
+        var inputPath = result.GetValueForArgument(inputArgument);
+
+        if (yMode)
+        {
+            await ConvertIdentityToRecipient(outputPath, inputPath);
+        }
+        else
+        {
+            await GenerateKey(outputPath);
+        }
+
+        return 0;
     }
 
     private static async Task GenerateKey(string? outputPath)
