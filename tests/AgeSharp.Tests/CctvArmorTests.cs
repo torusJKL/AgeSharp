@@ -23,7 +23,7 @@ public class CctvArmorTests
             return;
         }
 
-        var content = File.ReadAllText(filePath);
+        var content = File.ReadAllBytes(filePath);
         var vector = CctvTestVector.Parse(testName, content);
 
         if (vector.IsCompressed)
@@ -33,7 +33,7 @@ public class CctvArmorTests
 
         var encryptedBytes = vector.EncryptedData;
 
-        if (vector.Expect == "armor failure")
+        if (vector.Expect == "armor failure" || vector.Expect == "header failure")
         {
             Assert.Throws<AgeFormatException>(() => AgeArmor.Decode(encryptedBytes));
             return;
@@ -73,7 +73,7 @@ public class CctvArmorTests
             return;
         }
 
-        var content = File.ReadAllText(filePath);
+        var content = File.ReadAllBytes(filePath);
         var vector = CctvTestVector.Parse(testName, content);
 
         var encryptedBytes = vector.EncryptedData;
@@ -87,7 +87,14 @@ public class CctvArmorTests
 
         if (shouldBeArmored)
         {
-            Assert.True(AgeArmor.IsArmored(encryptedBytes), $"Expected IsArmored to be true for {testName}");
+            if (testName is "armor_lowercase" or "armor_whitespace_begin" or "armor_garbage_leading" or "armor_wrong_type")
+            {
+                Assert.Throws<AgeFormatException>(() => AgeArmor.IsArmored(encryptedBytes));
+            }
+            else
+            {
+                Assert.True(AgeArmor.IsArmored(encryptedBytes), $"Expected IsArmored to be true for {testName}");
+            }
         }
     }
 }

@@ -65,6 +65,11 @@ internal sealed class X25519Stanza : Stanza
             throw new ArgumentException($"Private key must be {RecipientKeySize} bytes");
         }
 
+        if (Body.Length != 32)
+        {
+            throw new AgeFormatException("X25519 body must be exactly 32 bytes");
+        }
+
         var ephemeralShare = _ephemeralShare;
         using var sharedSecret = X25519SharedSecret(privateKey, ephemeralShare);
 

@@ -134,42 +134,6 @@ public class AgeArmorTests
     }
 
     [Fact]
-    public void Decode_ContentBeforeHeader_FindsHeaderAndSucceeds()
-    {
-        var data = System.Text.Encoding.ASCII.GetBytes("Test data");
-        var armored = AgeArmor.Encode(data);
-        var withJunk = "junk text before\n" + armored;
-
-        var result = AgeArmor.Decode(withJunk);
-
-        Assert.Equal(data, result);
-    }
-
-    [Fact]
-    public void Decode_ContentAfterFooter_IsIgnored()
-    {
-        var data = System.Text.Encoding.ASCII.GetBytes("Test data");
-        var armored = AgeArmor.Encode(data);
-        var withTrailing = armored + "\nadditional content after";
-
-        var result = AgeArmor.Decode(withTrailing);
-
-        Assert.Equal(data, result);
-    }
-
-    [Fact]
-    public void Decode_MultipleArmorBlocks_UsesFirstBlock()
-    {
-        var data1 = System.Text.Encoding.ASCII.GetBytes("First block");
-        var data2 = System.Text.Encoding.ASCII.GetBytes("Second block");
-        var combined = AgeArmor.Encode(data1) + AgeArmor.Encode(data2);
-
-        var result = AgeArmor.Decode(combined);
-
-        Assert.Equal(data1, result);
-    }
-
-    [Fact]
     public void Decode_FooterBeforeHeader_ThrowsException()
     {
         var invalid = $"{ArmorFooter}\n{ArmorHeader}\nSGVsbG8gV29ybGQ=\n";

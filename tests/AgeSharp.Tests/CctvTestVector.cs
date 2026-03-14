@@ -18,10 +18,49 @@ public class CctvTestVector
 
     private static readonly Regex HeaderRegex = new(@"^(\w+):\s*(.*)$", RegexOptions.Multiline);
 
+    public static CctvTestVector Parse(string name, byte[] content)
+    {
+        var headerEndIndex = -1;
+        for (var i = 0; i < content.Length - 1; i++)
+        {
+            if (content[i] == '\n' && content[i + 1] == '\n')
+            {
+                headerEndIndex = i;
+                break;
+            }
+            if (i < content.Length - 2 && content[i] == '\n' && content[i + 1] == '\r' && content[i + 2] == '\n')
+            {
+                headerEndIndex = i;
+                break;
+            }
+        }
+
+        if (headerEndIndex < 0)
+        {
+            throw new ArgumentException("Invalid test vector format: no empty line found");
+        }
+
+        var headerBytes = content[..headerEndIndex];
+        var headerText = System.Text.Encoding.ASCII.GetString(headerBytes);
+        var payloadStartIndex = headerEndIndex + 1;
+        if (payloadStartIndex < content.Length - 1 && content[payloadStartIndex] == '\r')
+        {
+            payloadStartIndex++;
+        }
+        payloadStartIndex++;
+        var encryptedData = content[payloadStartIndex..];
+
+        return ParseFromParts(name, headerText, encryptedData);
+    }
+
     public static CctvTestVector Parse(string name, string content)
     {
-        var lines = content.Split('\n');
-        var headerEndIndex = -1;
+        return Parse(name, System.Text.Encoding.UTF8.GetBytes(content));
+    }
+
+    private static CctvTestVector ParseFromParts(string name, string headerText, byte[] encryptedData)
+    {
+        var lines = headerText.Split('\n');
         var header = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
 
         for (var i = 0; i < lines.Length; i++)
@@ -29,8 +68,7 @@ public class CctvTestVector
             var line = lines[i];
             if (string.IsNullOrWhiteSpace(line))
             {
-                headerEndIndex = i;
-                break;
+                continue;
             }
 
             var match = HeaderRegex.Match(line);
@@ -48,14 +86,6 @@ public class CctvTestVector
             }
         }
 
-        if (headerEndIndex < 0)
-        {
-            throw new ArgumentException("Invalid test vector format: no empty line found");
-        }
-
-        var encryptedLines = lines.Skip(headerEndIndex + 1);
-        var encryptedContent = string.Join("\n", encryptedLines);
-
         return new CctvTestVector
         {
             Name = name,
@@ -67,7 +97,7 @@ public class CctvTestVector
             IsArmored = header.GetValueOrDefault("armored")?.FirstOrDefault() == "yes",
             IsCompressed = header.GetValueOrDefault("compressed")?.FirstOrDefault() == "zlib",
             Comment = header.GetValueOrDefault("comment")?.FirstOrDefault(),
-            EncryptedData = System.Text.Encoding.UTF8.GetBytes(encryptedContent)
+            EncryptedData = encryptedData
         };
     }
 

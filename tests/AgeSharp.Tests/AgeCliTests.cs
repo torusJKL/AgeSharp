@@ -1,7 +1,5 @@
 using System.Diagnostics;
-using System.Text;
 
-using AgeSharp.Core;
 using Xunit;
 
 namespace AgeSharp.CLI.Tests;
@@ -32,7 +30,7 @@ public class AgeCliTests
     public async Task Encrypt_Decrypt_WithRecipient_ReturnsOriginalData()
     {
         await BuildProjectAsync(CliProjectPath);
-        
+
         var originalData = "Hello, World!";
         var tempDir = Path.Combine(Path.GetTempPath(), $"agesharp_test_{Guid.NewGuid()}");
         Directory.CreateDirectory(tempDir);
@@ -58,7 +56,7 @@ public class AgeCliTests
             }
             Assert.True(File.Exists(encryptedFile));
 
-            var decryptResult = await RunAsync("dotnet", $"run --project \"{CliProjectPath}\" -- -d -I \"{keyFile}\" -o \"{decryptedFile}\" \"{encryptedFile}\"");
+            var decryptResult = await RunAsync("dotnet", $"run --project \"{CliProjectPath}\" -- -d -i \"{keyFile}\" -o \"{decryptedFile}\" \"{encryptedFile}\"");
             Assert.Equal(0, decryptResult.ExitCode);
 
             var decryptedData = await File.ReadAllTextAsync(decryptedFile);
@@ -74,7 +72,7 @@ public class AgeCliTests
     public async Task Encrypt_WithRecipientsFile_ReturnsEncryptedFile()
     {
         await BuildProjectAsync(CliProjectPath);
-        
+
         var originalData = "Test data for recipients file";
         var tempDir = Path.Combine(Path.GetTempPath(), $"agesharp_test_{Guid.NewGuid()}");
         Directory.CreateDirectory(tempDir);
@@ -108,7 +106,7 @@ public class AgeCliTests
     public async Task Encrypt_MultipleRecipients_AllCanDecrypt()
     {
         await BuildProjectAsync(CliProjectPath);
-        
+
         var originalData = "Multi-recipient test";
         var tempDir = Path.Combine(Path.GetTempPath(), $"agesharp_test_{Guid.NewGuid()}");
         Directory.CreateDirectory(tempDir);
@@ -135,10 +133,10 @@ public class AgeCliTests
             var encryptResult = await RunAsync("dotnet", $"run --project \"{CliProjectPath}\" -- -r \"{publicKey1}\" -r \"{publicKey2}\" -o \"{encryptedFile}\" \"{plaintextFile}\"");
             Assert.Equal(0, encryptResult.ExitCode);
 
-            var decryptResult1 = await RunAsync("dotnet", $"run --project \"{CliProjectPath}\" -- -d -I \"{keyFile1}\" -o \"{decryptedFile1}\" \"{encryptedFile}\"");
+            var decryptResult1 = await RunAsync("dotnet", $"run --project \"{CliProjectPath}\" -- -d -i \"{keyFile1}\" -o \"{decryptedFile1}\" \"{encryptedFile}\"");
             Assert.Equal(0, decryptResult1.ExitCode);
 
-            var decryptResult2 = await RunAsync("dotnet", $"run --project \"{CliProjectPath}\" -- -d -I \"{keyFile2}\" -o \"{decryptedFile2}\" \"{encryptedFile}\"");
+            var decryptResult2 = await RunAsync("dotnet", $"run --project \"{CliProjectPath}\" -- -d -i \"{keyFile2}\" -o \"{decryptedFile2}\" \"{encryptedFile}\"");
             Assert.Equal(0, decryptResult2.ExitCode);
 
             var decryptedData1 = await File.ReadAllTextAsync(decryptedFile1);
@@ -198,7 +196,7 @@ public class AgeCliTests
 
             await RunAsync("dotnet", $"run --project \"{KeyGenProjectPath}\" -o \"{keyFile2}\"");
 
-            var result = await RunAsync("dotnet", $"run --project \"{CliProjectPath}\" -- -d -I \"{keyFile2}\" -o \"{tempDir}/out.txt\" \"{encryptedFile}\"");
+            var result = await RunAsync("dotnet", $"run --project \"{CliProjectPath}\" -- -d -i \"{keyFile2}\" -o \"{tempDir}/out.txt\" \"{encryptedFile}\"");
             Assert.NotEqual(0, result.ExitCode);
         }
         finally
@@ -211,7 +209,7 @@ public class AgeCliTests
     public async Task Encrypt_WithArmor_ReturnsArmoredFile()
     {
         await BuildProjectAsync(CliProjectPath);
-        
+
         var originalData = "Hello, World with armor!";
         var tempDir = Path.Combine(Path.GetTempPath(), $"agesharp_test_{Guid.NewGuid()}");
         Directory.CreateDirectory(tempDir);
@@ -247,7 +245,7 @@ public class AgeCliTests
     public async Task Encrypt_WithArmor_Decrypt_ReturnsOriginalData()
     {
         await BuildProjectAsync(CliProjectPath);
-        
+
         var originalData = "Test data for armor encryption";
         var tempDir = Path.Combine(Path.GetTempPath(), $"agesharp_test_{Guid.NewGuid()}");
         Directory.CreateDirectory(tempDir);
@@ -269,7 +267,7 @@ public class AgeCliTests
             var encryptResult = await RunAsync("dotnet", $"run --project \"{CliProjectPath}\" -- -r \"{publicKey}\" --armor -o \"{encryptedFile}\" \"{plaintextFile}\"");
             Assert.Equal(0, encryptResult.ExitCode);
 
-            var decryptResult = await RunAsync("dotnet", $"run --project \"{CliProjectPath}\" -- -d -I \"{keyFile}\" -o \"{decryptedFile}\" \"{encryptedFile}\"");
+            var decryptResult = await RunAsync("dotnet", $"run --project \"{CliProjectPath}\" -- -d -i \"{keyFile}\" -o \"{decryptedFile}\" \"{encryptedFile}\"");
             Assert.Equal(0, decryptResult.ExitCode);
 
             var decryptedData = await File.ReadAllTextAsync(decryptedFile);
@@ -285,7 +283,7 @@ public class AgeCliTests
     public async Task Decrypt_ArmoredFile_AutoDetectsAndDecrypts()
     {
         await BuildProjectAsync(CliProjectPath);
-        
+
         var originalData = "Auto-detect armored file";
         var tempDir = Path.Combine(Path.GetTempPath(), $"agesharp_test_{Guid.NewGuid()}");
         Directory.CreateDirectory(tempDir);
@@ -307,7 +305,7 @@ public class AgeCliTests
             var encryptResult = await RunAsync("dotnet", $"run --project \"{CliProjectPath}\" -- -r \"{publicKey}\" -a -o \"{encryptedFile}\" \"{plaintextFile}\"");
             Assert.Equal(0, encryptResult.ExitCode);
 
-            var decryptResult = await RunAsync("dotnet", $"run --project \"{CliProjectPath}\" -- -d -I \"{keyFile}\" -o \"{decryptedFile}\" \"{encryptedFile}\"");
+            var decryptResult = await RunAsync("dotnet", $"run --project \"{CliProjectPath}\" -- -d -i \"{keyFile}\" -o \"{decryptedFile}\" \"{encryptedFile}\"");
             Assert.Equal(0, decryptResult.ExitCode);
 
             var decryptedData = await File.ReadAllTextAsync(decryptedFile);
@@ -323,7 +321,7 @@ public class AgeCliTests
     public async Task Encrypt_WithoutArmor_ProducesBinaryFile()
     {
         await BuildProjectAsync(CliProjectPath);
-        
+
         var tempDir = Path.Combine(Path.GetTempPath(), $"agesharp_test_{Guid.NewGuid()}");
         Directory.CreateDirectory(tempDir);
 
@@ -358,7 +356,7 @@ public class AgeCliTests
         {
             throw new InvalidOperationException($"Key file not found: {keyFile}");
         }
-        
+
         var content = await File.ReadAllTextAsync(keyFile);
         var lines = content.Split('\n');
         foreach (var line in lines)

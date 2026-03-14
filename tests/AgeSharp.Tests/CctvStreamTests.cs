@@ -33,7 +33,7 @@ public class CctvStreamTests
             return;
         }
 
-        var content = File.ReadAllText(filePath);
+        var content = File.ReadAllBytes(filePath);
         var vector = CctvTestVector.Parse(testName, content);
 
         if (vector.IsCompressed)

@@ -38,7 +38,7 @@ public class CctvScryptTests
             return;
         }
 
-        var content = File.ReadAllText(filePath);
+        var content = File.ReadAllBytes(filePath);
         var vector = CctvTestVector.Parse(testName, content);
 
         if (vector.IsCompressed)

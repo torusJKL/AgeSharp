@@ -38,7 +38,7 @@ public class CctvHeaderTests
             return;
         }
 
-        var content = File.ReadAllText(filePath);
+        var content = File.ReadAllBytes(filePath);
         var vector = CctvTestVector.Parse(testName, content);
 
         if (vector.IsCompressed)
@@ -66,7 +66,7 @@ public class CctvHeaderTests
 
         if (vector.Expect == "header failure")
         {
-            Assert.Throws<AgeFormatException>(() => HeaderReader.Read(System.Text.Encoding.ASCII.GetString(data)));
+            Assert.Throws<AgeFormatException>(() => HeaderReader.Read(data));
             return;
         }
 
@@ -81,11 +81,12 @@ public class CctvHeaderTests
             throw new AgeFormatException("Invalid age file: no header found");
         }
 
-        var headerText = System.Text.Encoding.ASCII.GetString(data, 0, headerEndIndex + 1);
+        var headerBytes = data.AsSpan(0, headerEndIndex + 1).ToArray();
+        var headerText = System.Text.Encoding.ASCII.GetString(headerBytes);
 
         try
         {
-            var (stanzas, mac) = HeaderReader.Read(headerText);
+            var (stanzas, mac) = HeaderReader.Read(headerBytes);
 
             if (vector.Expect == "HMAC failure")
             {
