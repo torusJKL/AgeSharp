@@ -25,4 +25,10 @@
     <ProjectReference Include="..\..\src\AgeSharp.Core\AgeSharp.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Content Include="CCTV\**\*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
 </Project>
