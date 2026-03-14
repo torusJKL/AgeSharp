@@ -8,13 +8,13 @@ namespace AgeSharp.Tests;
 public class AgeInspectorTests
 {
     [Fact]
-    public void Inspect_BinaryFile_ReturnsVersionAndRecipients()
+    public async Task Inspect_BinaryFile_ReturnsVersionAndRecipients()
     {
         var identity = AgeKeyGenerator.GenerateX25519Key();
         var recipient = identity.ToRecipientString();
         var testData = "Hello, World!"u8.ToArray();
 
-        var encrypted = Age.EncryptAsync(testData, [AgeParser.ParseRecipient(recipient)]).GetAwaiter().GetResult();
+        var encrypted = await Age.EncryptAsync(testData, [AgeParser.ParseRecipient(recipient)]);
 
         var info = AgeInspector.Inspect(encrypted);
 
@@ -32,7 +32,7 @@ public class AgeInspectorTests
     }
 
     [Fact]
-    public void Inspect_ArmoredFile_ReturnsVersionRecipientsAndIsArmor()
+    public async Task Inspect_ArmoredFile_ReturnsVersionRecipientsAndIsArmor()
     {
         var identity = AgeKeyGenerator.GenerateX25519Key();
         var recipient = identity.ToRecipientString();
@@ -41,7 +41,7 @@ public class AgeInspectorTests
         using var input = new MemoryStream(testData);
         using var encryptedStream = new MemoryStream();
         var options = new EncryptionOptions { Armor = true };
-        Age.EncryptAsync(input, encryptedStream, [AgeParser.ParseRecipient(recipient)], options).GetAwaiter().GetResult();
+        await Age.EncryptAsync(input, encryptedStream, [AgeParser.ParseRecipient(recipient)], options);
         var encrypted = encryptedStream.ToArray();
 
         var info = AgeInspector.Inspect(encrypted);
@@ -54,15 +54,14 @@ public class AgeInspectorTests
     }
 
     [Fact]
-    public void Inspect_MultipleRecipients_ReturnsAllRecipients()
+    public async Task Inspect_MultipleRecipients_ReturnsAllRecipients()
     {
         var identity1 = AgeKeyGenerator.GenerateX25519Key();
         var identity2 = AgeKeyGenerator.GenerateX25519Key();
         var testData = "Hello, World!"u8.ToArray();
 
-        var encrypted = Age.EncryptAsync(testData, 
-            [AgeParser.ParseRecipient(identity1.ToRecipientString()), AgeParser.ParseRecipient(identity2.ToRecipientString())])
-            .GetAwaiter().GetResult();
+        var encrypted = await Age.EncryptAsync(testData, 
+            [AgeParser.ParseRecipient(identity1.ToRecipientString()), AgeParser.ParseRecipient(identity2.ToRecipientString())]);
 
         var info = AgeInspector.Inspect(encrypted);
 
@@ -103,12 +102,12 @@ public class AgeInspectorTests
     }
 
     [Fact]
-    public void Inspect_SizeProperties_AreCalculatedCorrectly()
+    public async Task Inspect_SizeProperties_AreCalculatedCorrectly()
     {
         var identity = AgeKeyGenerator.GenerateX25519Key();
         var testData = "Hello"u8.ToArray();
 
-        var encrypted = Age.EncryptAsync(testData, [AgeParser.ParseRecipient(identity.ToRecipientString())]).GetAwaiter().GetResult();
+        var encrypted = await Age.EncryptAsync(testData, [AgeParser.ParseRecipient(identity.ToRecipientString())]);
         var info = AgeInspector.Inspect(encrypted);
 
         // Verify all sizes are positive
