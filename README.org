@@ -1,6 +1,6 @@
 * AgeSharp
 
-C# implementation of the [[https://github.com/str4d/age][Age]] file encryption format.
+C# implementation of the [[https://github.com/FiloSottile/age][Age]] file encryption format.
 
 =Age= is a simple, modern and secure file encryption tool.
 
