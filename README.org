@@ -6,9 +6,85 @@ C# implementation of the [[https://github.com/str4d/age][Age]] file encryption f
 
 *Note: This is not affiliated with the official Age project.*
 
+** Known Limitations
+
+Some features from the Age specification are not yet implemented:
+- Post-quantum encryption (ML-KEM/ML-DSA)
+- Passphrase encryption
+
 ** Prerequisites
 
 - .NET 10 SDK
+
+** Library Usage
+
+AgeSharp provides a complete C# library for encrypting and decrypting data.
+
+#+begin_src csharp
+using AgeSharp.Core;
+
+// Generate a new identity
+var identity = AgeKeyGenerator.GenerateX25519Key();
+var recipient = identity.ToRecipient();
+
+// Encrypt data
+var data = System.Text.Encoding.UTF8.GetBytes("Hello, World!");
+var encrypted = await Age.EncryptAsync(data, new[] { recipient });
+
+// Decrypt data
+var decrypted = await Age.DecryptAsync(encrypted, new[] { identity });
+var message = System.Text.Encoding.UTF8.GetString(decrypted);
+#+end_src
+
+*** Using ASCII Armor
+
+#+begin_src csharp
+using AgeSharp.Core;
+
+// Encrypt with armor
+var options = new EncryptionOptions { Armor = true };
+using var output = new MemoryStream();
+await Age.EncryptAsync(input, output, recipients, options);
+
+var armored = System.Text.Encoding.ASCII.GetString(output.ToArray());
+// Output: -----BEGIN AGE ENCRYPTED FILE-----
+// ...
+// -----END AGE ENCRYPTED FILE-----
+#+end_src
+
+*** Parsing Keys
+
+#+begin_src csharp
+using AgeSharp.Core;
+
+// Parse a recipient from a string
+var recipient = AgeParser.ParseRecipient("age1n0szz7y4u757g66s2qkmv7tmrtpq55h6ve9tvugutwttwtcs99jsqlrx6j");
+
+// Parse an identity from a string
+var identity = AgeParser.ParseIdentity("AGE-SECRET-KEY-1RJD99JTCZLF60ACFAH9T34FF7XPFH5JF79VJNL8X3GA856KMDU5SZ0UU85");
+
+// Parse recipients from a file
+var recipients = AgeParser.ParseRecipientsFile("recipients.txt");
+
+// Parse identities from a file
+var identities = AgeParser.ParseIdentitiesFile("identities.txt");
+#+end_src
+
+*** Inspecting Files
+
+#+begin_src csharp
+using AgeSharp.Core;
+
+// Inspect an encrypted file
+var info = AgeInspector.Inspect("file.age");
+
+Console.WriteLine($"Version: {info.Version}");
+Console.WriteLine($"Armor: {info.IsArmor}");
+Console.WriteLine($"Post-quantum: {info.PostQuantum}");
+Console.WriteLine($"Stanza types: {string.Join(", ", info.StanzaTypes)}");
+Console.WriteLine($"Header size: {info.HeaderSize}");
+Console.WriteLine($"Payload size: {info.PayloadSize}");
+#+end_src
 
 ** Build
 
@@ -34,6 +110,9 @@ dotnet run --project src/AgeSharp.CLI.KeyGen
 
 # Generate key to file
 dotnet run --project src/AgeSharp.CLI.KeyGen -- -o key.txt
+
+# Convert identity to recipient (print public key)
+dotnet run --project src/AgeSharp.CLI.KeyGen -- -y -i key.txt
 #+end_src
 
 Output format:
@@ -45,26 +124,67 @@ AGE-SECRET-KEY-1RJD99JTCZLF60ACFAH9T34FF7XPFH5JF79VJNL8X3GA856KMDU5SZ0UU85
 
 *** age (main CLI)
 
-Main encryption/decryption tool (not yet implemented).
+Encrypt or decrypt files using X25519 keys.
+
+#+begin_src shell
+# Encrypt a file to a recipient
+dotnet run --project src/AgeSharp.CLI.Age -- -r age1n0szz7y4u757g66s2qkmv7tmrtpq55h6ve9tvugutwttwtcs99jsqlrx6j -o output.txt.age input.txt
+
+# Encrypt with ASCII armor
+dotnet run --project src/AgeSharp.CLI.Age -- -r age1n0szz7y4u757g66s2qkmv7tmrtpq55h6ve9tvugutwttwtcs99jsqlrx6j -a -o output.txt.age input.txt
+
+# Decrypt a file
+dotnet run --project src/AgeSharp.CLI.Age -- --decrypt -i key.txt -o output.txt input.txt.age
+
+# Encrypt to multiple recipients
+dotnet run --project src/AgeSharp.CLI.Age -- -r recipient1 -r recipient2 -o output.txt.age input.txt
+#+end_src
+
+**** Options
+
+| Option | Description |
+|--------|-------------|
+| =-e=, =--encrypt= | Encrypt mode (default) |
+| =-d=, =--decrypt= | Decrypt mode |
+| =-r=, =--recipient= | Recipient public key (can repeat) |
+| =-R=, =--recipients-file= | File containing recipients (can repeat) |
+| =-i=, =--identity= | Identity file for decryption (can repeat) |
+| =-a=, =--armor= | Use ASCII armor (PEM encoding) |
+| =-o=, =--output= | Output file path |
+| =-h=, =--help= | Show help |
+
+*** age-inspect
+
+Inspect an age encrypted file to view its metadata.
+
+#+begin_src shell
+# Inspect a file
+dotnet run --project src/AgeSharp.CLI.Inspect -- file.age
+
+# Inspect and output as JSON
+dotnet run --project src/AgeSharp.CLI.Inspect -- --json file.age
+#+end_src
 
 ** Project Structure
 
 #+begin_example
 AgeSharp/
 ├── src/
-│   ├── AgeSharp.Core/         # Core library
-│   │   ├── Encoding/          # Base64, Bech32 utilities
-│   │   ├── Headers/          # Age header parsing/generation
-│   │   ├── Keys/             # Key types (X25519, etc.)
-│   │   └── Exceptions/        # Custom exceptions
-│   ├── AgeSharp.CLI.Age/     # Main CLI (age)
-│   └── AgeSharp.CLI.KeyGen/  # Key generator (age-keygen)
+│   ├── AgeSharp.Core/           # Core library
+│   │   ├── Encoding/            # Base64, Bech32 utilities
+│   │   ├── Headers/             # Age header parsing/generation
+│   │   ├── Keys/                # Key types (X25519, etc.)
+│   │   └── Exceptions/          # Custom exceptions
+│   ├── AgeSharp.CommandLine/   # Command line parsing
+│   ├── AgeSharp.CLI.Age/        # Main CLI (age)
+│   ├── AgeSharp.CLI.KeyGen/     # Key generator (age-keygen)
+│   └── AgeSharp.CLI.Inspect/    # File inspector (age-inspect)
 ├── tests/
-│   └── AgeSharp.Tests/        # Unit tests
-├── doc/                      # Documentation
-│   └── requirements.org      # Detailed requirements
-├── README.org                # This file
-└── LICENSE                   # Apache 2.0 license
+│   └── AgeSharp.Tests/          # Unit tests
+├── doc/                         # Documentation
+│   └── requirements.org         # Detailed requirements
+├── README.org                   # This file
+└── LICENSE                      # Apache 2.0 license
 #+end_example
 
 ** Specification
