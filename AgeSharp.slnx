@@ -1,0 +1,16 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/AgeSharp.CLI.Inspect/AgeSharp.CLI.Inspect.csproj" />
+    <Project Path="src/AgeSharp.CommandLine/AgeSharp.CommandLine.csproj" />
+    <Project Path="src/AgeSharp.Core/AgeSharp.Core.csproj" />
+  </Folder>
+  <Folder Name="/src/AgeSharp.CLI.Age/">
+    <Project Path="src/AgeSharp.CLI.Age/AgeSharp.CLI.csproj" />
+  </Folder>
+  <Folder Name="/src/AgeSharp.CLI.KeyGen/">
+    <Project Path="src/AgeSharp.CLI.KeyGen/AgeSharp.KeyGen.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/AgeSharp.Tests/AgeSharp.Tests.csproj" />
+  </Folder>
+</Solution>
