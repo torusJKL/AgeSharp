@@ -1,5 +1,7 @@
 using System.Security.Cryptography;
 
+using AgeSharp.Core.Exceptions;
+
 namespace AgeSharp.Core.Payload;
 
 internal static class PayloadStream
@@ -28,6 +30,12 @@ internal static class PayloadStream
             chunkIndex++;
         }
 
+        if (chunkIndex == 0)
+        {
+            var ciphertext = PayloadCrypter.EncryptChunk(Array.Empty<byte>(), payloadKey, 0, true);
+            output.Write(ciphertext);
+        }
+
         return (nonce, input.Length);
     }
 
@@ -40,6 +48,7 @@ internal static class PayloadStream
 
         var chunkIndex = 0ul;
         var buffer = new byte[ChunkSize + 16];
+        var foundChunk = false;
         
         while (true)
         {
@@ -49,16 +58,26 @@ internal static class PayloadStream
                 break;
             }
 
+            foundChunk = true;
+
             if (bytesRead < 16)
             {
-                throw new Exception("Invalid chunk");
+                throw new AgeDecryptionException("Invalid payload: no chunks found");
             }
 
             var ciphertextLength = bytesRead - 16;
             var ciphertextAndTag = buffer[..bytesRead];
             var isFinal = ciphertextLength < ChunkSize;
             
-            var plaintext = PayloadCrypter.DecryptChunk(ciphertextAndTag, payloadKey, chunkIndex, isFinal);
+            byte[] plaintext;
+            try
+            {
+                plaintext = PayloadCrypter.DecryptChunk(ciphertextAndTag, payloadKey, chunkIndex, isFinal);
+            }
+            catch (CryptographicException)
+            {
+                throw new AgeDecryptionException("Payload decryption failed.");
+            }
             output.Write(plaintext);
             
             if (isFinal)
@@ -67,6 +86,11 @@ internal static class PayloadStream
             }
             
             chunkIndex++;
+        }
+
+        if (!foundChunk)
+        {
+            throw new AgeDecryptionException("Invalid payload: no chunks found");
         }
     }
 }

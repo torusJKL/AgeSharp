@@ -65,6 +65,11 @@ internal sealed class X25519Stanza : Stanza
             throw new ArgumentException($"Private key must be {RecipientKeySize} bytes");
         }
 
+        if (Body.Length != 32)
+        {
+            throw new AgeFormatException("X25519 body must be exactly 32 bytes");
+        }
+
         var ephemeralShare = _ephemeralShare;
         using var sharedSecret = X25519SharedSecret(privateKey, ephemeralShare);
 
@@ -101,7 +106,7 @@ internal sealed class X25519Stanza : Stanza
         var privateKey = Key.Import(KeyAgreementAlgorithm.X25519, scalar, KeyBlobFormat.RawPrivateKey);
         var publicKey = PublicKey.Import(KeyAgreementAlgorithm.X25519, point, KeyBlobFormat.RawPublicKey);
         var result = KeyAgreementAlgorithm.X25519.Agree(privateKey, publicKey);
-        return result ?? throw new InvalidOperationException("Key agreement failed");
+        return result ?? throw new AgeKeyException("Key agreement failed");
     }
 
     private static byte[] X25519PublicKey(byte[] privateKey)

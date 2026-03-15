@@ -5,7 +5,7 @@ namespace AgeSharp.Core;
 /// </summary>
 public static class Version
 {
-    private const string version = "0.1.0";
+    private const string version = "0.1.1";
 
     /// <summary>
     /// Gets the version string with build type postfix.

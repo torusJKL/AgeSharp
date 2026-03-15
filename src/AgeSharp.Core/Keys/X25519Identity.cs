@@ -28,7 +28,12 @@ internal sealed class X25519Identity : IIdentity, IIdentityStanzaUnwrapper
 
     public RecipientType Type => RecipientType.X25519;
 
-    public byte[] GetPrivateKey() => _privateKey;
+    public byte[] GetPrivateKey()
+    {
+        var copy = new byte[_privateKey.Length];
+        Buffer.BlockCopy(_privateKey, 0, copy, 0, _privateKey.Length);
+        return copy;
+    }
 
     public byte[] GetPublicKey()
     {
@@ -56,7 +61,23 @@ internal sealed class X25519Identity : IIdentity, IIdentityStanzaUnwrapper
                 stanza.Body);
             return x25519Stanza.Unwrap(_privateKey);
         }
-        catch
+        catch (AgeFormatException)
+        {
+            throw;
+        }
+        catch (AgeException)
+        {
+            throw new AgeFormatException("Invalid X25519 shared secret");
+        }
+        catch (FormatException)
+        {
+            throw new AgeFormatException("Invalid X25519 ephemeral share");
+        }
+        catch (InvalidOperationException)
+        {
+            throw new AgeFormatException("Invalid X25519 shared secret");
+        }
+        catch (CryptographicException)
         {
             return null;
         }

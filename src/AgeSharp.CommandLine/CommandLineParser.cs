@@ -357,7 +357,12 @@ internal sealed class OptionHandler : IArgumentHandler
         var value = option.Parse(new PeekableEnumerator(state.Args, result.NextIndex));
         var newIndex = result.ConsumedValue ? result.NextIndex + 1 : result.NextIndex;
 
-        var newOptionValues = new Dictionary<Option, object?>(state.OptionValues) { [option] = value };
+        var newOptionValues = new Dictionary<Option, object?>(state.OptionValues)
+        {
+            [option] = state.OptionValues.TryGetValue(option, out var existing)
+                ? OptionValueExtensions.MergeOptionValue(existing, value)
+                : value
+        };
 
         return state with
         {
@@ -436,6 +441,10 @@ public class ParseResult
             if (value is T typed)
             {
                 return typed;
+            }
+            if (typeof(T) == typeof(string[]) && value is List<string> list)
+            {
+                return (T)(object)list.ToArray();
             }
         }
         return option.GetValue();
@@ -736,9 +745,19 @@ public class CommandLineParser
             await _handler(handlerArgs.ToArray());
             return 0;
         }
-        catch (Exception ex)
+        catch (ArgumentException ex)
         {
             Console.Error.WriteLine($"Error: {ex.Message}");
+            return 1;
+        }
+        catch (InvalidOperationException ex)
+        {
+            Console.Error.WriteLine($"Error: {ex.Message}");
+            return 1;
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Unexpected error: {ex.Message}");
             return 1;
         }
     }
@@ -778,6 +797,25 @@ public class CommandLineParser
         }
 
         await Task.CompletedTask;
+    }
+}
+
+internal static class OptionValueExtensions
+{
+    internal static object? MergeOptionValue(object? existing, object? value)
+    {
+        return (existing, value) switch
+        {
+            (List<string> list, string[] arr) => list.Also(_ => list.AddRange(arr)),
+            (string[] oldArr, string[] newArr) => new List<string>(oldArr) { Capacity = oldArr.Length + newArr.Length }.Also(it => it.AddRange(newArr)),
+            _ => value
+        };
+    }
+
+    internal static T Also<T>(this T obj, Action<T> action) where T : class
+    {
+        action(obj);
+        return obj;
     }
 }
 

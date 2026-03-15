@@ -1,6 +1,7 @@
 using AgeSharp.CommandLine;
 
 using AgeSharp.Core;
+using System.Globalization;
 
 namespace AgeSharp.KeyGen;
 
@@ -73,7 +74,7 @@ class Program
         var identity = AgeKeyGenerator.GenerateX25519Key();
         var identityString = identity.ToIdentityString();
         var recipientString = identity.ToRecipientString();
-        var created = DateTime.Now.ToString("yyyy-MM-ddTHH:mm:sszzz");
+        var created = DateTime.Now.ToString("yyyy-MM-ddTHH:mm:sszzz", CultureInfo.InvariantCulture);
 
         var output = $"# created: {created}\n# public key: {recipientString}\n{identityString}";
 
@@ -83,7 +84,12 @@ class Program
         }
         else
         {
+            if (File.Exists(outputPath))
+            {
+                Console.Error.WriteLine($"Warning: overwriting existing file: {outputPath}");
+            }
             await File.WriteAllTextAsync(outputPath, output + "\n");
+            AgeSharp.Core.FilePermission.SecureFile(outputPath);
         }
     }
 
@@ -111,7 +117,12 @@ class Program
         }
         else
         {
+            if (File.Exists(outputPath))
+            {
+                Console.Error.WriteLine($"Warning: overwriting existing file: {outputPath}");
+            }
             await File.WriteAllTextAsync(outputPath, recipientString + "\n");
+            AgeSharp.Core.FilePermission.SecureFile(outputPath);
         }
     }
 

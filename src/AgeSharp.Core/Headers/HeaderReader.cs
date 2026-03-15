@@ -1,3 +1,5 @@
+using System.Linq;
+using System.Security.Cryptography;
 using System.Text;
 
 using AgeSharp.Core.Encoding;
@@ -59,9 +61,20 @@ internal static class HeaderReader
     private const string VersionLine = "age-encryption.org/v1";
     private const int MacBase64Length = 43;
 
+    internal static (List<ParsedStanza> Stanzas, string Mac) Read(byte[] headerBytes)
+    {
+        if (headerBytes.Any(b => b > 0x7F))
+        {
+            throw new AgeFormatException("Header contains non-ASCII bytes");
+        }
+
+        return Read(System.Text.Encoding.ASCII.GetString(headerBytes));
+    }
+
     internal static (List<ParsedStanza> Stanzas, string Mac) Read(string header)
     {
         ArgumentNullException.ThrowIfNull(header);
+        ValidateLineEndings(header);
 
         var lines = header.Split('\n');
 
@@ -107,6 +120,16 @@ internal static class HeaderReader
             throw new AgeFormatException($"Invalid MAC length: expected {MacBase64Length}, got {mac.Length}");
         }
 
+        if (mac.Any(c => !IsValidBase64NoPaddingChar(c)))
+        {
+            throw new AgeFormatException("Invalid MAC character");
+        }
+
+        if (mac.Contains('='))
+        {
+            throw new AgeFormatException("MAC contains padding");
+        }
+
         return (stanzas, mac);
     }
 
@@ -139,9 +162,33 @@ internal static class HeaderReader
 
         var headerText = string.Join("\n", headerForMac);
         var macKey = DeriveMacKey(fileKey);
-        var computedMac = ComputeMac(headerText, macKey);
+        var computedMacBytes = ComputeMac(headerText, macKey);
 
-        return providedMac == computedMac;
+        return CryptographicOperations.FixedTimeEquals(
+            System.Text.Encoding.ASCII.GetBytes(providedMac),
+            System.Text.Encoding.ASCII.GetBytes(computedMacBytes));
+    }
+
+    private static bool IsValidBase64NoPaddingChar(char c)
+    {
+        return (c >= 'A' && c <= 'Z') ||
+               (c >= 'a' && c <= 'z') ||
+               (c >= '0' && c <= '9') ||
+               c == '+' ||
+               c == '/';
+    }
+
+    private static bool IsValidVChar(char c)
+    {
+        return c >= 0x21 && c <= 0x7E;
+    }
+
+    private static void ValidateNoPadding(string encoded)
+    {
+        if (encoded.Contains('='))
+        {
+            throw new AgeFormatException("Base64 contains padding characters.");
+        }
     }
 
     private static ParsedStanza ParseStanza(string[] lines, ref int index)
@@ -158,18 +205,59 @@ internal static class HeaderReader
             throw new AgeFormatException("Invalid stanza arguments");
         }
 
+        foreach (var arg in args)
+        {
+            if (string.IsNullOrEmpty(arg))
+            {
+                throw new AgeFormatException("Invalid stanza argument: empty component");
+            }
+
+            if (arg.Any(c => !IsValidVChar(c)))
+            {
+                throw new AgeFormatException("Invalid stanza argument character");
+            }
+        }
+
         var type = args[0];
         var arguments = args.Length > 1 ? args[1..] : Array.Empty<string>();
+
+        if (type == "X25519" && arguments.Length == 1)
+        {
+            var argBytes = Base64NoPadding.Decode(arguments[0]);
+            if (argBytes.Length != 32)
+            {
+                throw new AgeFormatException("X25519 argument must be 32 bytes");
+            }
+            var canonical = Base64NoPadding.Encode(argBytes);
+            if (canonical != arguments[0])
+            {
+                throw new AgeFormatException("X25519 argument uses non-canonical base64 encoding");
+            }
+        }
+
+        if (type == "X25519" && arguments.Length != 1)
+        {
+            throw new AgeFormatException($"X25519 stanza must have exactly 1 argument, got {arguments.Length}");
+        }
 
         ++index;
 
         var bodyText = new StringBuilder();
+        var bodyLineCount = 0;
+        var foundFinalLine = false;
         while (index < lines.Length)
         {
             var line = lines[index];
 
-            if (string.IsNullOrWhiteSpace(line) || line.StartsWith("-> ") || line.StartsWith("--- "))
+            if (line.StartsWith("-> ") || line.StartsWith("--- "))
             {
+                break;
+            }
+
+            if (string.IsNullOrEmpty(line))
+            {
+                foundFinalLine = true;
+                ++index;
                 break;
             }
 
@@ -178,15 +266,49 @@ internal static class HeaderReader
                 throw new AgeFormatException("Stanza line too long");
             }
 
+            foreach (var c in line)
+            {
+                if (!IsValidBase64NoPaddingChar(c))
+                {
+                    throw new AgeFormatException("Invalid stanza body character");
+                }
+            }
+
+            if (line.Contains('='))
+            {
+                throw new AgeFormatException("Stanza body contains padding");
+            }
+
             bodyText.Append(line);
             ++index;
+            bodyLineCount++;
 
             if (line.Length < 64)
             {
+                foundFinalLine = true;
                 break;
             }
         }
-        var body = Base64NoPadding.Decode(bodyText.ToString());
+
+        if (!foundFinalLine)
+        {
+            throw new AgeFormatException("Stanza body must end with a short line (less than 64 characters)");
+        }
+
+        byte[] body;
+        if (bodyText.Length > 0)
+        {
+            body = Base64NoPadding.Decode(bodyText.ToString());
+            var canonical = Base64NoPadding.Encode(body);
+            if (canonical != bodyText.ToString())
+            {
+                throw new AgeFormatException("Stanza body uses non-canonical base64 encoding");
+            }
+        }
+        else
+        {
+            body = Array.Empty<byte>();
+        }
 
         return new ParsedStanza(type, arguments, body);
     }
@@ -206,5 +328,13 @@ internal static class HeaderReader
         using var hmac = new System.Security.Cryptography.HMACSHA256(macKey);
         var hash = hmac.ComputeHash(headerBytes);
         return Base64NoPadding.Encode(hash);
+    }
+
+    internal static void ValidateLineEndings(string header)
+    {
+        if (header.Contains("\r\n"))
+        {
+            throw new AgeFormatException("Header uses CRLF line endings instead of LF");
+        }
     }
 }
