@@ -745,9 +745,19 @@ public class CommandLineParser
             await _handler(handlerArgs.ToArray());
             return 0;
         }
-        catch (Exception ex)
+        catch (ArgumentException ex)
         {
             Console.Error.WriteLine($"Error: {ex.Message}");
+            return 1;
+        }
+        catch (InvalidOperationException ex)
+        {
+            Console.Error.WriteLine($"Error: {ex.Message}");
+            return 1;
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Unexpected error: {ex.Message}");
             return 1;
         }
     }

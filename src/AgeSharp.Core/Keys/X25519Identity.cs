@@ -28,7 +28,12 @@ internal sealed class X25519Identity : IIdentity, IIdentityStanzaUnwrapper
 
     public RecipientType Type => RecipientType.X25519;
 
-    public byte[] GetPrivateKey() => _privateKey;
+    public byte[] GetPrivateKey()
+    {
+        var copy = new byte[_privateKey.Length];
+        Buffer.BlockCopy(_privateKey, 0, copy, 0, _privateKey.Length);
+        return copy;
+    }
 
     public byte[] GetPublicKey()
     {

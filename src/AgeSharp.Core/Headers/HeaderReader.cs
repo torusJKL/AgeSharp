@@ -1,4 +1,5 @@
 using System.Linq;
+using System.Security.Cryptography;
 using System.Text;
 
 using AgeSharp.Core.Encoding;
@@ -161,9 +162,11 @@ internal static class HeaderReader
 
         var headerText = string.Join("\n", headerForMac);
         var macKey = DeriveMacKey(fileKey);
-        var computedMac = ComputeMac(headerText, macKey);
+        var computedMacBytes = ComputeMac(headerText, macKey);
 
-        return providedMac == computedMac;
+        return CryptographicOperations.FixedTimeEquals(
+            System.Text.Encoding.ASCII.GetBytes(providedMac),
+            System.Text.Encoding.ASCII.GetBytes(computedMacBytes));
     }
 
     private static bool IsValidBase64NoPaddingChar(char c)

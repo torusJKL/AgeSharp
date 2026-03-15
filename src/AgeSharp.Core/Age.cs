@@ -128,7 +128,7 @@ public static class Age
         var payloadData = new byte[allData.Length - headerEndIndex - 1];
         Buffer.BlockCopy(allData, headerEndIndex + 1, payloadData, 0, payloadData.Length);
 
-        var payloadStream = new MemoryStream(payloadData);
+        using var payloadStream = new MemoryStream(payloadData);
         PayloadStream.ReadPayload(payloadStream, output, fileKey, cancellationToken);
     }
 
@@ -235,7 +235,7 @@ public static class Age
     {
         try
         {
-            encryptedData = EncryptAsync(data, recipients, CancellationToken.None).GetAwaiter().GetResult();
+            encryptedData = Task.Run(() => EncryptAsync(data, recipients, CancellationToken.None)).GetAwaiter().GetResult();
             return true;
         }
         catch (AgeException)
@@ -256,7 +256,7 @@ public static class Age
     {
         try
         {
-            decryptedData = DecryptAsync(data, identities, CancellationToken.None).GetAwaiter().GetResult();
+            decryptedData = Task.Run(() => DecryptAsync(data, identities, CancellationToken.None)).GetAwaiter().GetResult();
             return true;
         }
         catch (AgeException)
