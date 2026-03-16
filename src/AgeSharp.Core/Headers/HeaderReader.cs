@@ -109,6 +109,11 @@ internal static class HeaderReader
             stanzas.Add(stanza);
         }
 
+        if (stanzas.Count > 1 && stanzas.Any(s => s.Type == "scrypt"))
+        {
+            throw new AgeFormatException("Scrypt stanza cannot be mixed with other recipient types");
+        }
+
         if (i >= lines.Length)
         {
             throw new AgeFormatException("Missing MAC");
@@ -240,6 +245,48 @@ internal static class HeaderReader
             throw new AgeFormatException($"X25519 stanza must have exactly 1 argument, got {arguments.Length}");
         }
 
+        if (type == "scrypt")
+        {
+            if (arguments.Length != 2)
+            {
+                throw new AgeFormatException($"Scrypt stanza must have exactly 2 arguments, got {arguments.Length}");
+            }
+
+            try
+            {
+                var salt = Base64NoPadding.Decode(arguments[0]);
+                if (salt.Length != 16)
+                {
+                    throw new AgeFormatException("Scrypt salt must be 16 bytes");
+                }
+                var canonicalSalt = Base64NoPadding.Encode(salt);
+                if (canonicalSalt != arguments[0])
+                {
+                    throw new AgeFormatException("Scrypt salt uses non-canonical base64 encoding");
+                }
+            }
+            catch (FormatException)
+            {
+                throw new AgeFormatException("Invalid scrypt salt: not valid base64");
+            }
+
+            var logNStr = arguments[1];
+            if (!System.Text.RegularExpressions.Regex.IsMatch(logNStr, @"^[1-9][0-9]*$"))
+            {
+                throw new AgeFormatException("Scrypt logN must be a decimal number with no leading zeros");
+            }
+
+            if (!int.TryParse(logNStr, out var logN) || logN < 1)
+            {
+                throw new AgeFormatException("Invalid scrypt logN");
+            }
+
+            if (logN > 22)
+            {
+                throw new AgeFormatException("Scrypt logN exceeds maximum allowed value of 22");
+            }
+        }
+
         ++index;
 
         var bodyText = new StringBuilder();
@@ -308,6 +355,11 @@ internal static class HeaderReader
         else
         {
             body = Array.Empty<byte>();
+        }
+
+        if (type == "scrypt" && body.Length != 32)
+        {
+            throw new AgeFormatException("Scrypt body must be exactly 32 bytes");
         }
 
         return new ParsedStanza(type, arguments, body);

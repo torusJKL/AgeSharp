@@ -90,3 +90,14 @@ public class AgeIdentityNotFoundException : AgeDecryptionException
     /// <param name="message">The message that describes the error.</param>
     public AgeIdentityNotFoundException(string message) : base(message) { }
 }
+
+/// <summary>
+/// Exception thrown when the passphrase is incorrect.
+/// </summary>
+public class AgeInvalidPassphraseException : AgeDecryptionException
+{
+    /// <summary>
+    /// Initializes a new instance of the <see cref="AgeInvalidPassphraseException"/> class.
+    /// </summary>
+    public AgeInvalidPassphraseException() : base("Incorrect passphrase") { }
+}

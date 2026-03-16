@@ -22,11 +22,15 @@ public class AgeParserTests
     }
 
     [Fact]
-    public void ParseRecipient_InvalidString_ThrowsAgeKeyException()
+    public void ParseRecipient_InvalidString_ReturnsScryptRecipient()
     {
         var invalidString = "invalid-recipient-string";
 
-        Assert.Throws<AgeKeyException>(() => AgeParser.ParseRecipient(invalidString));
+        var recipient = AgeParser.ParseRecipient(invalidString);
+
+        Assert.NotNull(recipient);
+        Assert.Equal(RecipientType.Scrypt, recipient.Type);
+        Assert.Equal(invalidString, recipient.ToRecipientString());
     }
 
     [Fact]
@@ -49,11 +53,15 @@ public class AgeParserTests
     }
 
     [Fact]
-    public void ParseIdentity_InvalidString_ThrowsAgeKeyException()
+    public void ParseIdentity_InvalidString_ReturnsScryptIdentity()
     {
         var invalidString = "AGE-SECRET-KEY-invalid";
 
-        Assert.Throws<AgeKeyException>(() => AgeParser.ParseIdentity(invalidString));
+        var identity = AgeParser.ParseIdentity(invalidString);
+
+        Assert.NotNull(identity);
+        Assert.Equal(RecipientType.Scrypt, identity.Type);
+        Assert.Equal(invalidString, identity.ToIdentityString());
     }
 
     [Fact]
