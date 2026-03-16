@@ -6,12 +6,9 @@ namespace AgeSharp.Core.Keys;
 
 internal static class PassphraseValidator
 {
-    internal const int MaxPassphraseLength = 64;
     internal const int MinLogN = 1;
     internal const int MaxLogN = 22;
     internal const string PassphraseCannotBeEmpty = "Passphrase cannot be empty";
-
-    internal static string PassphraseExceedsMaxLength => $"Passphrase cannot exceed {MaxPassphraseLength} characters";
 
     /// <summary>
     /// Validates and normalizes a passphrase, then converts to bytes for secure handling.
@@ -27,11 +24,6 @@ internal static class PassphraseValidator
         }
 
         var normalized = passphrase.Normalize(System.Text.NormalizationForm.FormC);
-
-        if (normalized.Length > MaxPassphraseLength)
-        {
-            throw new AgeKeyException(PassphraseExceedsMaxLength);
-        }
 
         var passphraseBytes = new UTF8Encoding(false).GetBytes(normalized);
 

@@ -310,19 +310,28 @@ public static class Age
     {
         var identitiesByType = identities
             .OfType<IIdentityStanzaUnwrapper>()
-            .GroupBy(i => i.Type.ToString())
+            .GroupBy(i => i.Type)
             .ToDictionary(g => g.Key, g => g.ToList());
 
         foreach (var stanza in stanzas)
         {
-            if (identitiesByType.TryGetValue(stanza.Type, out var matchingIdentities))
+            foreach (var type in identitiesByType.Keys)
             {
-                foreach (var identity in matchingIdentities)
+                if (stanza.Type.Equals(type.ToString(), StringComparison.OrdinalIgnoreCase))
                 {
-                    var fileKey = identity.Unwrap(stanza);
-                    if (fileKey is not null)
+                    foreach (var identity in identitiesByType[type])
                     {
-                        return fileKey;
+                        try
+                        {
+                            var fileKey = identity.Unwrap(stanza);
+                            if (fileKey is not null)
+                            {
+                                return fileKey;
+                            }
+                        }
+                        catch (AgeInvalidPassphraseException)
+                        {
+                        }
                     }
                 }
             }
