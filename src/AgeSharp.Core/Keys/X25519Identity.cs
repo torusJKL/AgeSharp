@@ -59,7 +59,9 @@ internal sealed class X25519Identity : IIdentity, IIdentityStanzaUnwrapper
             var x25519Stanza = new X25519Stanza(
                 Base64NoPadding.Decode(stanza.Arguments[0]),
                 stanza.Body);
-            return x25519Stanza.Unwrap(_privateKey);
+            var result = x25519Stanza.Unwrap(_privateKey);
+            CryptographicOperations.ZeroMemory(_privateKey);
+            return result;
         }
         catch (AgeFormatException)
         {

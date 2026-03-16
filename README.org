@@ -10,11 +10,15 @@ C# implementation of the [[https://github.com/FiloSottile/age][Age]] file encryp
 
 Some features from the Age specification are not yet implemented:
 - Post-quantum encryption (ML-KEM/ML-DSA)
-- Passphrase encryption
 
 ** Prerequisites
 
 - .NET 10 SDK
+
+** Dependencies
+
+- [[https://www.nuget.org/packages/NSec.Cryptography/][NSec.Cryptography]] - X25519, ChaCha20-Poly1305, HKDF
+- [[https://www.nuget.org/packages/Norgerman.Cryptography.Scrypt/][Norgerman.Cryptography.Scrypt]] - Scrypt for passphrases
 
 ** Library Usage
 
@@ -35,6 +39,39 @@ var encrypted = await Age.EncryptAsync(data, new[] { recipient });
 var decrypted = await Age.DecryptAsync(encrypted, new[] { identity });
 var message = System.Text.Encoding.UTF8.GetString(decrypted);
 #+end_src
+
+*** Using Passphrase
+
+#+begin_src csharp
+using AgeSharp.Core;
+
+// Create a passphrase recipient
+var passphrase = "your-passphrase";
+var recipient = AgeParser.ParseRecipient(passphrase);
+
+// Encrypt data with passphrase
+var data = System.Text.Encoding.UTF8.GetBytes("Hello, World!");
+var encrypted = await Age.EncryptAsync(data, new[] { recipient });
+
+// Decrypt using passphrase identity
+var identity = AgeParser.ParseIdentity(passphrase);
+var decrypted = await Age.DecryptAsync(encrypted, new[] { identity });
+var message = System.Text.Encoding.UTF8.GetString(decrypted);
+#+end_src
+
+** Security Notes
+
+*** Memory Security
+
+For security, private keys and passphrases are stored as byte arrays and are zeroed in memory immediately after each encryption/decryption operation. This prevents sensitive key material from persisting in memory longer than necessary.
+
+- X25519 private keys are zeroed after each ~Unwrap()~ call
+- Scrypt passphrases are zeroed after each ~CreateStanza()~ or ~Unwrap()~ call
+- To decrypt multiple files, re-read the key file or re-enter the passphrase
+
+*** Passphrase Identities
+
+Passphrase identities cannot be serialized to a string. This prevents accidental leakage of passphrases in logs or debug output. Use ~AgeParser.ParseIdentity()~ with the original passphrase to decrypt.
 
 *** Using ASCII Armor
 
@@ -124,7 +161,7 @@ AGE-SECRET-KEY-1RJD99JTCZLF60ACFAH9T34FF7XPFH5JF79VJNL8X3GA856KMDU5SZ0UU85
 
 *** age (main CLI)
 
-Encrypt or decrypt files using X25519 keys.
+Encrypt or decrypt files using X25519 keys or passphrases.
 
 #+begin_src shell
 # Encrypt a file to a recipient
@@ -146,10 +183,11 @@ dotnet run --project src/AgeSharp.CLI.Age -- -r recipient1 -r recipient2 -o outp
 |--------|-------------|
 | =-e=, =--encrypt= | Encrypt mode (default) |
 | =-d=, =--decrypt= | Decrypt mode |
-| =-r=, =--recipient= | Recipient public key (can repeat) |
+| =-r=, =--recipient= | Recipient public key or passphrase (can repeat) |
 | =-R=, =--recipients-file= | File containing recipients (can repeat) |
 | =-i=, =--identity= | Identity file for decryption (can repeat) |
 | =-a=, =--armor= | Use ASCII armor (PEM encoding) |
+| =-p=, =--passphrase= | Prompt for passphrase to encrypt |
 | =-o=, =--output= | Output file path |
 | =-h=, =--help= | Show help |
 

@@ -12,7 +12,7 @@ public static class AgeParser
     /// <summary>
     /// Parses a recipient string into an IRecipient.
     /// </summary>
-    /// <param name="input">The recipient string (e.g., age1...).</param>
+    /// <param name="input">The recipient string (e.g., age1...) or passphrase.</param>
     /// <returns>The parsed recipient.</returns>
     /// <exception cref="ArgumentNullException">Thrown when input is null.</exception>
     /// <exception cref="AgeKeyException">Thrown when input is not a valid recipient string.</exception>
@@ -28,13 +28,18 @@ public static class AgeParser
             return new X25519Recipient(publicKey);
         }
 
-        throw new AgeKeyException($"Invalid recipient string: {input}");
+        if (!string.IsNullOrWhiteSpace(input))
+        {
+            return new ScryptRecipient(input);
+        }
+
+        throw new AgeKeyException("Invalid recipient string: not a valid age key or passphrase");
     }
 
     /// <summary>
     /// Parses an identity string into an IIdentity.
     /// </summary>
-    /// <param name="input">The identity string (e.g., AGE-SECRET-KEY-1...).</param>
+    /// <param name="input">The identity string (e.g., AGE-SECRET-KEY-1...) or passphrase.</param>
     /// <returns>The parsed identity.</returns>
     /// <exception cref="ArgumentNullException">Thrown when input is null.</exception>
     /// <exception cref="AgeKeyException">Thrown when input is not a valid identity string.</exception>
@@ -50,7 +55,12 @@ public static class AgeParser
             return new X25519Identity(privateKey);
         }
 
-        throw new AgeKeyException($"Invalid identity string: {input}");
+        if (!string.IsNullOrWhiteSpace(input))
+        {
+            return new ScryptIdentity(input);
+        }
+
+        throw new AgeKeyException("Invalid identity string: not a valid age identity or passphrase");
     }
 
     /// <summary>
