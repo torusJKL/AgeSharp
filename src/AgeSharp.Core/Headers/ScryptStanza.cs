@@ -4,6 +4,7 @@ using System.Text.RegularExpressions;
 
 using AgeSharp.Core.Encoding;
 using AgeSharp.Core.Exceptions;
+using AgeSharp.Core.Keys;
 using Norgerman.Cryptography.Scrypt;
 
 namespace AgeSharp.Core.Headers;
@@ -35,7 +36,7 @@ internal sealed class ScryptStanza : Stanza
     internal byte[] GetSalt() => _salt;
     internal int GetLogN() => _logN;
 
-    internal static ScryptStanza Create(byte[] fileKey, string passphrase)
+    internal static ScryptStanza Create(byte[] fileKey, byte[] passphrase)
     {
         ArgumentNullException.ThrowIfNull(fileKey);
         ArgumentNullException.ThrowIfNull(passphrase);
@@ -54,7 +55,7 @@ internal sealed class ScryptStanza : Stanza
         return new ScryptStanza(salt, DefaultLogN, body);
     }
 
-    internal byte[] Unwrap(string passphrase)
+    internal byte[] Unwrap(byte[] passphrase)
     {
         ArgumentNullException.ThrowIfNull(passphrase);
 
@@ -63,41 +64,27 @@ internal sealed class ScryptStanza : Stanza
             throw new AgeFormatException("Scrypt body must be exactly 32 bytes");
         }
 
-        if (_logN > MaxLogN)
-        {
-            throw new AgeFormatException($"Scrypt logN exceeds maximum allowed value of {MaxLogN}");
-        }
+        PassphraseValidator.ValidateLogN(_logN);
 
         var wrapKey = DeriveKey(passphrase, _salt, _logN);
         return DecryptWithKey(wrapKey, Body, Nonce);
     }
 
-    private static byte[] DeriveKey(string passphrase, byte[] salt, int logN)
+    private static byte[] DeriveKey(byte[] passphrase, byte[] salt, int logN)
     {
-        var normalizedPassphrase = NormalizePassphrase(passphrase);
-        var passphraseBytes = new UTF8Encoding(false).GetBytes(normalizedPassphrase);
-
-        var scryptSalt = new byte[SaltPrefix.Length + salt.Length];
-        Buffer.BlockCopy(SaltPrefix, 0, scryptSalt, 0, SaltPrefix.Length);
-        Buffer.BlockCopy(salt, 0, scryptSalt, SaltPrefix.Length, salt.Length);
-
-        var n = 1 << logN;
-        return ScryptUtil.Scrypt(passphraseBytes, scryptSalt, n, 8, 1, 32);
-    }
-
-    private static string NormalizePassphrase(string passphrase)
-    {
-        if (string.IsNullOrEmpty(passphrase))
+        try
         {
-            throw new AgeKeyException("Passphrase cannot be empty");
-        }
+            var scryptSalt = new byte[SaltPrefix.Length + salt.Length];
+            Buffer.BlockCopy(SaltPrefix, 0, scryptSalt, 0, SaltPrefix.Length);
+            Buffer.BlockCopy(salt, 0, scryptSalt, SaltPrefix.Length, salt.Length);
 
-        if (passphrase.Length > 64)
+            var n = 1 << logN;
+            return ScryptUtil.Scrypt(passphrase, scryptSalt, n, 8, 1, 32);
+        }
+        finally
         {
-            throw new AgeKeyException("Passphrase cannot exceed 64 characters");
+            CryptographicOperations.ZeroMemory(passphrase);
         }
-
-        return passphrase.Normalize(NormalizationForm.FormC);
     }
 
     private static byte[] EncryptWithKey(byte[] key, byte[] plaintext, byte[] nonce)

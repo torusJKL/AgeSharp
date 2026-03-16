@@ -28,12 +28,12 @@ public static class AgeParser
             return new X25519Recipient(publicKey);
         }
 
-        if (!string.IsNullOrEmpty(input))
+        if (!string.IsNullOrWhiteSpace(input))
         {
             return new ScryptRecipient(input);
         }
 
-        throw new AgeKeyException($"Invalid recipient string: {input}");
+        throw new AgeKeyException("Invalid recipient string: not a valid age key or passphrase");
     }
 
     /// <summary>
@@ -55,12 +55,12 @@ public static class AgeParser
             return new X25519Identity(privateKey);
         }
 
-        if (!string.IsNullOrEmpty(input))
+        if (!string.IsNullOrWhiteSpace(input))
         {
             return new ScryptIdentity(input);
         }
 
-        throw new AgeKeyException($"Invalid identity string: {input}");
+        throw new AgeKeyException("Invalid identity string: not a valid age identity or passphrase");
     }
 
     /// <summary>

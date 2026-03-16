@@ -5,32 +5,26 @@ using AgeSharp.Core.Headers;
 
 namespace AgeSharp.Core.Keys;
 
+/// <summary>
+/// Stores passphrase as byte[] rather than string to allow secure memory zeroing after use.
+/// Strings in .NET are immutable and cannot be overwritten in memory, making them difficult to securely erase.
+/// </summary>
 internal sealed class ScryptIdentity : IIdentity, IIdentityStanzaUnwrapper
 {
-    private readonly string _passphrase;
+    private readonly byte[] _passphrase;
 
-    public ScryptIdentity(string passphrase)
+    internal ScryptIdentity(string passphrase)
     {
-        ArgumentNullException.ThrowIfNull(passphrase);
-
-        if (string.IsNullOrEmpty(passphrase))
-        {
-            throw new AgeKeyException("Passphrase cannot be empty");
-        }
-
-        if (passphrase.Length > 64)
-        {
-            throw new AgeKeyException("Passphrase cannot exceed 64 characters");
-        }
-
-        _passphrase = passphrase.Normalize(System.Text.NormalizationForm.FormC);
+        _passphrase = PassphraseValidator.ValidateAndNormalizeToBytes(passphrase);
     }
 
     public RecipientType Type => RecipientType.Scrypt;
 
-    public string ToIdentityString() => _passphrase;
+    public string ToIdentityString() 
+        => throw new NotSupportedException("Cannot serialize passphrase identity");
 
-    public string ToRecipientString() => _passphrase;
+    public string ToRecipientString() 
+        => throw new NotSupportedException("Cannot serialize passphrase identity");
 
     public byte[]? Unwrap(ParsedStanza stanza)
     {
@@ -42,7 +36,9 @@ internal sealed class ScryptIdentity : IIdentity, IIdentityStanzaUnwrapper
 
         try
         {
-            return scryptStanza.Unwrap(_passphrase);
+            var result = scryptStanza.Unwrap(_passphrase);
+            CryptographicOperations.ZeroMemory(_passphrase);
+            return result;
         }
         catch (AgeFormatException)
         {

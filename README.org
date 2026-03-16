@@ -59,6 +59,20 @@ var decrypted = await Age.DecryptAsync(encrypted, new[] { identity });
 var message = System.Text.Encoding.UTF8.GetString(decrypted);
 #+end_src
 
+** Security Notes
+
+*** Memory Security
+
+For security, private keys and passphrases are stored as byte arrays and are zeroed in memory immediately after each encryption/decryption operation. This prevents sensitive key material from persisting in memory longer than necessary.
+
+- X25519 private keys are zeroed after each ~Unwrap()~ call
+- Scrypt passphrases are zeroed after each ~CreateStanza()~ or ~Unwrap()~ call
+- To decrypt multiple files, re-read the key file or re-enter the passphrase
+
+*** Passphrase Identities
+
+Passphrase identities cannot be serialized to a string. This prevents accidental leakage of passphrases in logs or debug output. Use ~AgeParser.ParseIdentity()~ with the original passphrase to decrypt.
+
 *** Using ASCII Armor
 
 #+begin_src csharp

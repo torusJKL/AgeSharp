@@ -30,7 +30,6 @@ public class AgeParserTests
 
         Assert.NotNull(recipient);
         Assert.Equal(RecipientType.Scrypt, recipient.Type);
-        Assert.Equal(invalidString, recipient.ToRecipientString());
     }
 
     [Fact]
@@ -61,7 +60,6 @@ public class AgeParserTests
 
         Assert.NotNull(identity);
         Assert.Equal(RecipientType.Scrypt, identity.Type);
-        Assert.Equal(invalidString, identity.ToIdentityString());
     }
 
     [Fact]
