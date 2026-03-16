@@ -9,7 +9,6 @@
 
   <PropertyGroup>
     <PackageId>AgeSharp.CommandLine</PackageId>
-    <Version>1.0.0</Version>
     <Authors>AgeSharp</Authors>
     <Description>Command line parser with options-first argument order</Description>
   </PropertyGroup>
